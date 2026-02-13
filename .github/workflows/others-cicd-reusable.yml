@@ -16,7 +16,7 @@ on:
         description: 'Run SonarQube scan'
         required: false
         type: boolean
-        default: true
+        default: "true"
       run-snyk:
         description: 'Run Snyk security scan'
         required: false
@@ -26,7 +26,7 @@ on:
         description: 'Enable deployment'
         required: false
         type: boolean
-        default: true
+        default: 'true'
     
     secrets:
       SONAR_TOKEN:
@@ -39,7 +39,7 @@ on:
         description: 'Deployment token'
         required: false
     
-    outputs:
+    output:
       version:
         description: 'Application version'
         value: ${{ jobs.prepare.outputs.version }}
@@ -67,7 +67,7 @@ jobs:
     
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v14
         with:
           ref: ${{ inputs.ref }}
           fetch-depth: 0

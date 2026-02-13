@@ -1,0 +1,36 @@
+name: sast-semgrep
+description: "Run Semgrep SAST and upload SARIF if available."
+inputs:
+  rules:
+    description: "Ruta a reglas o --config argument"
+    required: false
+    default: ""
+runs:
+  using: "composite"
+  steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Install semgrep
+      shell: bash
+      run: |
+        set -euo pipefail
+        python3 -m pip install --upgrade pip
+        python3 -m pip install semgrep
+
+    - name: Run semgrep
+      id: semgrep
+      shell: bash
+      run: |
+        set -euo pipefail
+        ARGS="${{ inputs.rules }}"
+        # execute and capture SARIF output file
+        semgrep --config "${ARGS:-p/ci/}" --json --output semgrep-report.json || true
+        # exit code does not fail CI here; caller defines enforcement
+        echo "report=semgrep-report.json" >> "$GITHUB_OUTPUT"
+
+    - name: Upload SARIF (if available)
+      if: ${{ steps.semgrep.outputs.report == 'semgrep-report.json' && always() }}
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: semgrep-report.json

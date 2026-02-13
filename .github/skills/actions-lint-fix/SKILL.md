@@ -1,26 +1,25 @@
 ---
-name: workflows-lint-workflows
-description: Revisa, lintea y corrige workflows reusables de GitHub Actions: formato, claves válidas, y validación de versiones de acciones (e.g., detectar 'uses: actions/checkout@v15' y sugerir @v6 o pin a SHA). Valida claves requeridas 'on' y 'jobs'.
+name: actions-lint-fix
+description: Revisa, lintea y corrige actions reusables de GitHub Actions: formato, claves válidas, y validación de versiones de acciones (e.g., detectar 'uses: actions/checkout@v15' y sugerir @v6 o pin a SHA). Valida claves requeridas 'inputs' y 'runs'.
 license: Apache-2.0
 compatibility: [claude, vscode-copilot, cursor]
 metadata:
   domain: cicd
-  skill_id: cicd.workflows.workflows-lint-workflows
+  skill_id: cicd.workflows.actions-lint-fix
 ---
 
-# cicd.workflows.workflows-lint-workflows
-
+# cicd.workflows.actions-lint-fix
 
 ## Cuándo usar
-- Al validar o corregir workflows reusables YAML de GitHub Actions en `.github/workflows/`.
+- Al validar o corregir actions reusables YAML de GitHub Actions en `actions/**/*.yml` o `actions/**/*.yaml`.
 - Cuando se requiera asegurar versionado correcto de acciones (`uses:`).
 - Para aplicar políticas de seguridad y estabilidad en CI/CD.
 - Al integrar validaciones automáticas en pipelines o PRs.
 
 ## Entradas
-- Antes de iniciar el análisis, siempre se solicita al usuario que indique qué workflows se va a analizar. Puede elegir todos los workflows del repositorio o seleccionar archivos específicos.
+- Antes de iniciar el análisis, siempre se solicita al usuario que indique qué actions se va a analizar. Puede elegir todas las actions del repositorio o seleccionar archivos específicos.
 - Ruta raíz del repositorio (por defecto: `.`).
-- Workflows reusables en `.github/workflows/*.yml` o `.yaml`.
+- Actions reusables en `actions/**/*.yml` o `actions/**/*.yaml`.
 
 ## Salidas
 - Reporte de errores, advertencias y mejoras sobre versionado, sintaxis y estructura, categorizados con alertas tipo semáforo:
@@ -33,49 +32,49 @@ metadata:
 - Mensajes de warning/error en formato GitHub Actions (`::warning`, `::error`).
 
 ## Pasos
-1. Ejecutar lint estructural sobre los workflows reusables.
+1. Ejecutar lint estructural sobre las actions reusables.
 2. Validar claves requeridas y prohibidas:
-  - Requeridas: `on`, `jobs` en la raíz.
-  - Prohibidas: `inputs`, `runs` en la raíz.
+   - Requeridas: `name`, `description`, `inputs`, `runs` en la raíz.
+   - Prohibidas: `on`, `jobs` en la raíz.
 3. Validar versiones de acciones (`uses:`) usando:
-  - `scripts/validate-actions-versions.sh` (requiere `jq`).
+   - `scripts/validate-actions-versions.sh` (requiere `jq`).
 4. Corregir versiones irreales/no soportadas con:
-  - `scripts/fix-actions-versions.sh`.
+   - `scripts/fix-actions-versions.sh`.
 5. Reportar advertencias y errores según política.
 
 ## Checklist de calidad
 - [ ] Detecta claves y estructura YAML inválida.
-- [ ] Valida claves requeridas: `on`, `jobs`.
-- [ ] Marca como error claves prohibidas: `inputs`, `runs` en la raíz.
+- [ ] Valida claves requeridas: `name`, `description`, `inputs`, `runs`.
+- [ ] Marca como error claves prohibidas: `on`, `jobs` en la raíz.
 - [ ] Extrae y valida todos los `uses:`.
 - [ ] Aplica política de versiones mínimas/recomendadas.
 - [ ] Corrige versiones irreales/no soportadas.
 - [ ] Reporta advertencias y errores en formato Actions.
 - [ ] Permite integración en pipelines CI/CD.
 
-
 ## Ejemplos
-**Entrada**
-- Workflow sin clave `on` o `jobs` en la raíz
-
-**Salida**
-🔴 [error] Falta la clave requerida 'on' o 'jobs' en la raíz del workflow.
 
 **Entrada**
-- Workflow con `inputs` o `runs` en la raíz
+- Action sin clave `name`, `description`, `inputs` o `runs` en la raíz
 
 **Salida**
-🔴 [error] Clave no permitida 'inputs' o 'runs' en la raíz de un workflow.
+🔴 [error] Falta la clave requerida 'name', 'description', 'inputs' o 'runs' en la raíz de la action.
 
 **Entrada**
-- Workflow con `uses: actions/checkout@v15`
+- Action con `on` o `jobs` en la raíz
 
 **Salida**
-🔴 [error] Acción actions/checkout@v15 no está permitida.
-Sugerencia: reemplaza por actions/checkout@v6
+🔴 [error] Clave no permitida 'on' o 'jobs' en la raíz de una action reusable.
 
-Fragmento a modificar en .github/workflows/ci.yml:
-- uses: actions/checkout@v15
+**Entrada**
+- Action con `uses: actions/checkout@main`
+
+**Salida**
+🟠 [warning] Acción actions/checkout@main no está permitida.
+Sugerencia: reemplaza por actions/checkout@v6 o pin a SHA permitido.
+
+Fragmento a modificar en actions/mi-action/action.yml:
+- uses: actions/checkout@main
 + uses: actions/checkout@v6
 
 ¿Deseas aplicar este cambio?

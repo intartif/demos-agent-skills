@@ -1,0 +1,40 @@
+name: build-angular
+
+inputs:
+  node-version:
+    required: false
+    default: "20"
+  production:
+    required: false
+    default: "true"
+runs:
+  using: "composite"
+  steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+
+    - name: Install dependencies
+      shell: bash
+      run: |
+        set -euo pipefail
+        npm ci
+
+    - name: Build angular
+      shell: bash
+      run: |
+        set -euo pipefail
+        if [[ "${{ inputs.production }}" == "true" ]]; then
+          npx ng build --configuration=production
+        else
+          npx ng build
+        fi
+
+    - name: Upload build artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: angular-dist
+        path: dist

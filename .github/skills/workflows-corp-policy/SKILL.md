@@ -1,6 +1,6 @@
 ---
 name: workflows-corp-policy
-description: Valida patrones y estándares corporativos en workflows de GitHub Actions (.github/workflows). Reporta incumplimientos y sugiere fixes.
+description: Valida patrones y estándares corporativos en workflows y actions reusables de GitHub Actions (.github/workflows/, actions/). Reporta incumplimientos y sugiere fixes.
 license: Apache-2.0
 compatibility: [claude, vscode-copilot, cursor]
 metadata:
@@ -15,7 +15,9 @@ metadata:
 - Al integrar nuevos workflows o modificar existentes en `.github/workflows/`.
 
 ## Entradas
-- Workflows YAML en `.github/workflows/*.yml` o `.yaml`.
+- Antes de iniciar el análisis, siempre se solicita al usuario que indique qué workflows analizar. Puede elegir todos los workflows del repositorio o seleccionar archivos específicos.
+- Workflows reusables YAML en `.github/workflows/*.yml` o `.yaml`.
+- Actions reusables YAML en `actions/**/*.yml` o `actions/**/*.yaml`.
 - Configuración de patrones y allowlist (`config/patterns.yml`, `config/actions-allowlist.yml`).
 
 ## Salidas
@@ -42,10 +44,13 @@ metadata:
 - [ ] Artifacts y SARIF correctamente gestionados.
 - [ ] Naming y metadatos consistentes.
 - [ ] Timeouts y matrices definidos donde aplica.
+- [ ] Todos los archivos de workflows y actions reusables deben usar la extensión `.yml` (no `.yaml`).
+
 
 ## Ejemplos
 **Entrada**
 - Workflow con permisos globales ausentes.
+- Archivo reusable action o workflows con extensión `.yaml`.
 
 **Salida**
 🔴 [error] Falta permisos mínimos en .github/workflows/ci.yml
@@ -56,6 +61,9 @@ permissions:
   contents: read
   pull-requests: read
 ```
+
+🔴 [error] Archivo actions/mi-action.yaml no cumple con la extensión requerida (.yml)
+Sugerencia: renombra a actions/mi-action.yml
 
 ¿Deseas aplicar este cambio en .github/workflows/ci.yml?
 

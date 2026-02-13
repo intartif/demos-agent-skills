@@ -1,0 +1,39 @@
+inputs:
+  app-name:
+    description: "Nombre de la aplicación"
+    required: true
+  version:
+    description: "Versión (semver preferible)"
+    required: false
+  path:
+    description: "Ruta que debe existir"
+    required: false
+runs:
+  using: "composite"
+  steps:
+    - name: Validate required inputs
+      shell: bash
+      run: |
+        set -euo pipefail
+        if [[ -z "${{ inputs.app-name }}" ]]; then
+          echo "ERROR: app-name es requerido"
+          exit 1
+        fi
+
+    - name: Validate semver (if provided)
+      if: ${{ inputs.version != '' }}
+      shell: bash
+      run: |
+        if ! [[ "${{ inputs.version }}" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.+].*)?$ ]]; then
+          echo "ERROR: version debe seguir semver (ej: 1.2.3)"
+          exit 2
+        fi
+
+    - name: Validate path exists (if provided)
+      if: ${{ inputs.path != '' }}
+      shell: bash
+      run: |
+        if [[ ! -e "${{ inputs.path }}" ]]; then
+          echo "ERROR: path '${{ inputs.path }}' no existe"
+          exit 3
+        fi

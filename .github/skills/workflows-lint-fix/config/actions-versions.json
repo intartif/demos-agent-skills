@@ -1,0 +1,38 @@
+{
+  "actions/checkout": {
+    "recommendedMajor": "v6",
+    "minMajor": 4
+  },
+  "actions/setup-node": {
+    "recommendedMajor": "v4",
+    "minMajor": 3
+  },
+  "actions/upload-artifact": {
+    "recommendedMajor": "v4",
+    "minMajor": 3
+  },
+  "actions/download-artifact": {
+    "recommendedMajor": "v4",
+    "minMajor": 3
+  },
+  "actions/setup-java": {
+    "recommendedMajor": "v4",
+    "minMajor": 3
+  },
+  "snyk/actions/setup": {
+    "recommendedMajor": "v4",
+    "minMajor": 2
+  },
+  "sonarsource/sonarqube-scan-action": {
+    "recommendedMajor": "v1",
+    "minMajor": 1
+  },
+  "sonarsource/sonarqube-quality-gate-action": {
+    "recommendedMajor": "v1",
+    "minMajor": 1
+  },
+  "gradle/gradle-build-action": {
+    "recommendedMajor": "v2",
+    "minMajor": 2
+  }
+}

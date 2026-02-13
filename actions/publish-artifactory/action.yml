@@ -1,0 +1,42 @@
+name: publish-artifactory
+description: "Publish artifacts to JFrog Artifactory using jfrog-cli."
+inputs:
+  artifact-path:
+    description: "Path to artifact(s) to publish (glob allowed)"
+    required: true
+  repo:
+    description: "Artifactory repo target"
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Install jfrog CLI
+      shell: bash
+      run: |
+        set -euo pipefail
+        curl -fL https://getcli.jfrog.io | sh
+        chmod +x jfrog
+        mv jfrog /usr/local/bin/jfrog
+
+    - name: Configure jfrog
+      shell: bash
+      env:
+        ARTIFACTORY_URL: ${{ secrets.ARTIFACTORY_URL }}
+        ARTIFACTORY_USER: ${{ secrets.ARTIFACTORY_USER }}
+        ARTIFACTORY_API_KEY: ${{ secrets.ARTIFACTORY_API_KEY }}
+      run: |
+        set -euo pipefail
+        if [[ -z "${ARTIFACTORY_URL:-}" || -z "${ARTIFACTORY_USER:-}" || -z "${ARTIFACTORY_API_KEY:-}" ]]; then
+          echo "Artifactory credentials not provided. Skipping publish."
+          exit 0
+        fi
+        jfrog rt config --url="$ARTIFACTORY_URL" --user="$ARTIFACTORY_USER" --apikey="$ARTIFACTORY_API_KEY" --interactive=false
+
+    - name: Publish artifacts
+      shell: bash
+      run: |
+        set -euo pipefail
+        jfrog rt u "${{ inputs.artifact-path }}" "${{ inputs.repo }}" --flat=false

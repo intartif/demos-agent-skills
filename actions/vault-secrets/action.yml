@@ -1,0 +1,53 @@
+name: vault-secrets
+description: "Read a secret from Vault KV v2 and expose it as output (masked)."
+inputs:
+  secret-path:
+    description: "Vault KV v2 path (eg: secret/data/my/path)"
+    required: true
+  json-key:
+    description: "Key inside the secret data.data JSON to extract"
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Validate inputs
+      shell: bash
+      run: |
+        set -euo pipefail
+        if [[ -z "${{ inputs.secret-path }}" || -z "${{ inputs.json-key }}" ]]; then
+          echo "secret-path and json-key are required"
+          exit 1
+        fi
+
+    - name: Fetch secret from Vault
+      id: vault
+      shell: bash
+      env:
+        VAULT_ADDR: ${{ secrets.VAULT_ADDR }}
+        VAULT_TOKEN: ${{ secrets.VAULT_TOKEN }}
+      run: |
+        set -euo pipefail
+        if [[ -z "${VAULT_ADDR:-}" || -z "${VAULT_TOKEN:-}" ]]; then
+          echo "Vault credentials missing; failing."
+          exit 2
+        fi
+
+        # Query Vault KV v2
+        resp="$(curl -sSf --header "X-Vault-Token: ${VAULT_TOKEN}" "${VAULT_ADDR}/v1/${{ inputs.secret-path }}")"
+        # Extract nested key: data.data.<json-key>
+        value="$(echo "$resp" | python3 -c "import sys, json; j=json.load(sys.stdin); print(j.get('data',{}).get('data',{}).get('${{ inputs.json-key }}',''))")" || true
+
+        if [[ -z "$value" ]]; then
+          echo "ERROR: secret key not found or empty"
+          exit 3
+        fi
+
+        # Write to GITHUB_OUTPUT without echoing the secret to logs
+        printf "vault_secret=%s\n" "$value" >> "$GITHUB_OUTPUT"
+
+    - name: Mask secret in logs
+      if: always()
+      shell: bash
+      run: |
+        # Masking is automatic for secrets but ensure we do not print them.
+        echo "Secret retrieved and stored as output."

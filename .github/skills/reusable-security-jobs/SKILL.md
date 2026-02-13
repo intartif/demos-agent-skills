@@ -18,6 +18,7 @@ metadata:
 ## Entradas
 - Lenguaje(s) del proyecto.
 - Preferencia de workflow reusable o jobs sueltos.
+- Antes de iniciar el análisis, se consulta al usuario el workflow a modificar.
 - Secrets requeridos para cada herramienta (SONAR_TOKEN, SNYK_TOKEN, FORTIFY_AUTH_TOKEN, etc).
 - Parámetros de configuración para cada análisis (project_key, organization, etc).
 
