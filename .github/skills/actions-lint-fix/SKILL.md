@@ -37,11 +37,15 @@ metadata:
 3. Validar claves requeridas y prohibidas:
    - Requeridas: `name`, `description`, `inputs`, `runs` en la raíz.
    - Prohibidas: `on`, `jobs` en la raíz.
-4. Validar versiones de acciones (`uses:`) usando:
+4. Validar estructura de yml (`uses:`) usando:
+   - `scripts/validate-yml-structure.sh` (requiere `jq`).
+5. Validar versiones de acciones (`uses:`) usando:
    - `scripts/validate-actions-versions.sh` (requiere `jq`).
-5. Corregir versiones irreales/no soportadas con:
+6. Corregir versiones irreales/no soportadas con:
    - `scripts/fix-actions-versions.sh`.
-6. Reportar advertencias y errores según política.
+7. Mostrar un reporte de advertencias, errores y mejoras encontradas por cada archivo, con fragmentos antes/después para cada fix sugerido.
+8. Al finalizar el reporte, solicitar al usuario si desea aplicar los cambios encontrados.
+9. Si el usuario acepta, aplicar los fixes automáticamente.
 
 ## Checklist de calidad
 - [ ] Detecta claves y estructura YAML inválida.
