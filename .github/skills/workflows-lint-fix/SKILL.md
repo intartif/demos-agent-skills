@@ -1,14 +1,14 @@
 ---
-name: workflows-lint-workflows
+name: workflows-lint-fix
 description: Revisa, lintea y corrige workflows reusables de GitHub Actions: formato, claves válidas, y validación de versiones de acciones (e.g., detectar 'uses: actions/checkout@v15' y sugerir @v6 o pin a SHA). Valida claves requeridas 'on' y 'jobs'.
 license: Apache-2.0
 compatibility: [claude, vscode-copilot, cursor]
 metadata:
   domain: cicd
-  skill_id: cicd.workflows.workflows-lint-workflows
+  skill_id: cicd.workflows.workflows-lint-fix
 ---
 
-# cicd.workflows.workflows-lint-workflows
+# cicd.workflows.workflows-lint-fix
 
 
 ## Cuándo usar
@@ -18,7 +18,7 @@ metadata:
 - Al integrar validaciones automáticas en pipelines o PRs.
 
 ## Entradas
-- Antes de iniciar el análisis, siempre se solicita al usuario que indique qué workflows se va a analizar. Puede elegir todos los workflows del repositorio o seleccionar archivos específicos.
+- Antes de iniciar el análisis, siempre se solicita al usuario que indique qué workflows se va a analizar. Puede elegir todas las workflows reusables del repositorio o seleccionar archivos específicos.
 - Ruta raíz del repositorio (por defecto: `.`).
 - Workflows reusables en `.github/workflows/*.yml` o `.yaml`.
 
@@ -33,15 +33,16 @@ metadata:
 - Mensajes de warning/error en formato GitHub Actions (`::warning`, `::error`).
 
 ## Pasos
-1. Ejecutar lint estructural sobre los workflows reusables.
-2. Validar claves requeridas y prohibidas:
+1. **Antes de cualquier análisis, solicitar explícitamente al usuario qué workflows desea analizar** (todas o selección específica). No continuar hasta recibir respuesta.
+2. Ejecutar lint estructural sobre los workflows reusables.
+3. Validar claves requeridas y prohibidas:
   - Requeridas: `on`, `jobs` en la raíz.
   - Prohibidas: `inputs`, `runs` en la raíz.
-3. Validar versiones de acciones (`uses:`) usando:
+4. Validar versiones de acciones (`uses:`) usando:
   - `scripts/validate-actions-versions.sh` (requiere `jq`).
-4. Corregir versiones irreales/no soportadas con:
+5. Corregir versiones irreales/no soportadas con:
   - `scripts/fix-actions-versions.sh`.
-5. Reportar advertencias y errores según política.
+6. Reportar advertencias y errores según política.
 
 ## Checklist de calidad
 - [ ] Detecta claves y estructura YAML inválida.

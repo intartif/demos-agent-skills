@@ -32,15 +32,16 @@ metadata:
 - Mensajes de warning/error en formato GitHub Actions (`::warning`, `::error`).
 
 ## Pasos
-1. Ejecutar lint estructural sobre las actions reusables.
-2. Validar claves requeridas y prohibidas:
+1. **Antes de cualquier análisis, solicitar explícitamente al usuario qué actions desea analizar** (todas o selección específica). No continuar hasta recibir respuesta.
+2. Ejecutar lint estructural sobre las actions reusables seleccionadas.
+3. Validar claves requeridas y prohibidas:
    - Requeridas: `name`, `description`, `inputs`, `runs` en la raíz.
    - Prohibidas: `on`, `jobs` en la raíz.
-3. Validar versiones de acciones (`uses:`) usando:
+4. Validar versiones de acciones (`uses:`) usando:
    - `scripts/validate-actions-versions.sh` (requiere `jq`).
-4. Corregir versiones irreales/no soportadas con:
+5. Corregir versiones irreales/no soportadas con:
    - `scripts/fix-actions-versions.sh`.
-5. Reportar advertencias y errores según política.
+6. Reportar advertencias y errores según política.
 
 ## Checklist de calidad
 - [ ] Detecta claves y estructura YAML inválida.

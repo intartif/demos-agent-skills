@@ -1,5 +1,4 @@
 name: build-angular
-
 inputs:
   node-version:
     required: false
