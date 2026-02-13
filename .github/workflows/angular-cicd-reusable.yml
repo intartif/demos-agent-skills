@@ -1,7 +1,3 @@
-# Workflow Reusable para CI/CD de Aplicaciones Angular
-# Ubicación: Repositorio separado de workflows (ej: organization/cicd-workflows)
-# Path: .github/workflows/angular-cicd-reusable.yml
-
 name: Angular CI/CD Pipeline
 
 on:
@@ -80,7 +76,7 @@ on:
         description: 'Número del issue que disparó el workflow'
         required: false
         type: number
-        default: 0
+        default: '0'
       triggered-by:
         description: 'Usuario que disparó el deployment'
         required: false
@@ -169,7 +165,7 @@ jobs:
     
     steps:
       - name: Checkout código
-        uses: actions/checkout@v4
+        uses: actions/checkout@v24
         with:
           ref: ${{ inputs.branch }}
           fetch-depth: 0  # Full history para análisis
@@ -238,7 +234,7 @@ jobs:
           cache: 'npm'
 
       - name: Restaurar dependencias
-        uses: actions/cache@v4
+        uses: actions/cache@v24
         with:
           path: node_modules
           key: ${{ needs.setup.outputs.cache-key }}
@@ -267,58 +263,58 @@ jobs:
       results: ${{ steps.test-results.outputs.summary }}
     
     steps:
-      - name: Checkout código
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.branch }}
+        - name: Checkout código
+          uses: actions/checkout@v4
+          with:
+            ref: ${{ inputs.branch }}
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ inputs.node-version }}
-          cache: 'npm'
+        - name: Setup Node.js
+          uses: actions/setup-node@v4
+          with:
+            node-version: ${{ inputs.node-version }}
+            cache: 'npm'
 
-      - name: Restaurar dependencias
-        uses: actions/cache@v4
-        with:
-          path: node_modules
-          key: ${{ needs.setup.outputs.cache-key }}
+        - name: Restaurar dependencias
+          uses: actions/cache@v4
+          with:
+            path: node_modules
+            key: ${{ needs.setup.outputs.cache-key }}
 
-      - name: Ejecutar tests unitarios
-        run: |
-          echo "🧪 Ejecutando tests unitarios..."
-          npm run test:ci --if-present || ng test --watch=false --browsers=ChromeHeadless --code-coverage=${{ inputs.generate-coverage }}
+        - name: Ejecutar tests unitarios
+          run: |
+            echo "🧪 Ejecutando tests unitarios..."
+            npm run test:ci --if-present || ng test --watch=false --browsers=ChromeHeadless --code-coverage=${{ inputs.generate-coverage }}
 
-      - name: Generar reporte de coverage
-        if: inputs.generate-coverage
-        run: |
-          echo "📊 Generando reporte de coverage..."
-          if [ -d "coverage" ]; then
-            echo "Coverage report generado en ./coverage"
-          fi
+        - name: Generar reporte de coverage
+          if: inputs.generate-coverage
+          run: |
+            echo "📊 Generando reporte de coverage..."
+            if [ -d "coverage" ]; then
+              echo "Coverage report generado en ./coverage"
+            fi
 
-      - name: Subir coverage a Codecov
-        if: inputs.generate-coverage
-        uses: codecov/codecov-action@v4
-        with:
-          files: ./coverage/lcov.info
-          flags: unittests
-          name: angular-coverage
+        - name: Subir coverage a Codecov
+          if: inputs.generate-coverage
+          uses: codecov/codecov-action@v4
+          with:
+            files: ./coverage/lcov.info
+            flags: unittests
+            name: angular-coverage
 
-      - name: Publicar resultados de tests
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-results-${{ inputs.environment }}
-          path: |
-            coverage/
-            test-results/
-          retention-days: 30
+        - name: Publicar resultados de tests
+          if: always()
+          uses: actions/upload-artifact@v4
+          with:
+            name: test-results-${{ inputs.environment }}
+            path: |
+              coverage/
+              test-results/
+            retention-days: 30
 
-      - name: Resumen de tests
-        id: test-results
-        run: |
-          echo "summary=Tests ejecutados exitosamente" >> $GITHUB_OUTPUT
+        - name: Resumen de tests
+          id: test-results
+          run: |
+            echo "summary=Tests ejecutados exitosamente" >> $GITHUB_OUTPUT
 
   # ============================================
   # JOB 5: TESTS E2E
