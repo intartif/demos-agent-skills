@@ -9,31 +9,31 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v14
 
-    - name: Setup Node
-      uses: actions/setup-node@v4
-      with:
-        node-version: ${{ inputs.node-version }}
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
 
-    - name: Install dependencies
-      shell: bash
-      run: |
-        set -euo pipefail
-        npm ci
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci
 
-    - name: Build angular
-      shell: bash
-      run: |
-        set -euo pipefail
-        if [[ "${{ inputs.production }}" == "true" ]]; then
-          npx ng build --configuration=production
-        else
-          npx ng build
-        fi
+      - name: Build angular
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ inputs.production }}" == "true" ]]; then
+            npx ng build --configuration=production
+          else
+            npx ng build
+          fi
 
-    - name: Upload build artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: angular-dist
-        path: dist
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: angular-dist
+          path: dist

@@ -1,0 +1,58 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "report": {
+      "type": "object",
+      "properties": {
+        "header": { "type": "string" },
+        "selected_files": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "path": { "type": "string" },
+              "summary": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "enum": ["OK","WARNING","ERROR"] },
+                    "message": { "type": "string" }
+                  },
+                  "required": ["status","message"]
+                }
+              },
+              "details": { "type": "string" },
+              "fixes": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "title": { "type": "string" },
+                    "error": { "type": "string" },
+                    "before": { "type": "string" },
+                    "after": { "type": "string" }
+                  },
+                  "required": ["title","error","before","after"]
+                }
+              }
+            },
+            "required": ["path","summary","details"]
+          }
+        },
+        "actions_to_apply": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "question": { "type": "string" }
+      },
+      "required": ["header","selected_files","files","question"]
+    }
+  },
+  "required": ["report"]
+}
