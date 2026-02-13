@@ -1,0 +1,26 @@
+sonar:
+  runs-on: ubuntu-latest
+  steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+    - name: Sonar scan (Cloud or Server)
+      env:
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      run: |
+        npm i -g sonarqube-scanner || true
+        if [ -z "${{ inputs.sonar_host_url }}" ]; then
+          npx sonar-scanner \
+            -Dsonar.projectKey=${{ inputs.sonar_project_key }} \
+            -Dsonar.organization=${{ inputs.sonar_organization }} \
+            -Dsonar.sources=. \
+            -Dsonar.host.url=https://sonarcloud.io \
+            -Dsonar.login=$SONAR_TOKEN
+        else
+          npx sonar-scanner \
+            -Dsonar.projectKey=${{ inputs.sonar_project_key }} \
+            -Dsonar.sources=. \
+            -Dsonar.host.url=${{ inputs.sonar_host_url }} \
+            -Dsonar.login=$SONAR_TOKEN
+        fi

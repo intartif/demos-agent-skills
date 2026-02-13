@@ -1,0 +1,93 @@
+#
+# .github/skills/workflows-corp-policy/config/patterns.yml
+# Reglas corporativas para validar workflows en .github/workflows/*.yml|*.yaml
+
+permissions:
+  required: true
+  # Exigir declaración explícita de permisos a nivel workflow (o job)
+  defaultAtWorkflow:
+    enforce: true
+    template:
+      contents: read
+      pull-requests: read
+
+runners:
+  # Lista de runners/canales aprobados (agrega tus etiquetas de self-hosted)
+  allow:
+    - "ubuntu-latest"
+    - "ubuntu-22.04"
+    - "self-hosted:linux:x64:secure-group"
+  denyMessage: "Runner no permitido. Usa ubuntu-latest, ubuntu-22.04 o un self-hosted etiquetado 'linux:x64:secure-group'."
+
+actions:
+  # Requiere que toda acción usada esté en el allowlist
+  requireAllowlist: true
+  # Advertir si se usa rama como ref (main/master)
+  branchRefWarning: true
+  # Política de versionado aceptada: major|sha|either
+  pinToMajorOrSha: "major"
+
+timeouts:
+  # Timeout por defecto si el job no lo define
+  jobDefaultMinutes: 30
+  # Jobs que deben definir timeout obligatorio
+  requireTimeoutFor:
+    - "build"
+    - "test"
+    - "deploy"
+
+triggers:
+  # Eventos requeridos (si faltan → warning)
+  mustInclude:
+    - "pull_request"
+  # Eventos prohibidos por defecto (salvo excepciones)
+  mustNotInclude:
+    - "schedule"
+
+naming:
+  # Nombre de workflow: capitalizado y descriptivo
+  workflowName:
+    pattern: "^[A-Z][A-Za-z0-9 .-]{3,60}$"
+    message: "Usa un nombre capitalizado y descriptivo (4–60 caracteres)."
+  # IDs de job en kebab-case
+  jobId:
+    pattern: "^[a-z0-9-]{3,30}$"
+    message: "job.id debe estar en kebab-case (3–30 caracteres)."
+
+artifacts:
+  # Si se detecta que se generan archivos .sarif en steps previos,
+  # exigir upload a Code Scanning (upload-sarif)
+  requireCodeScanningUpload: true
+
+env:
+  # Bloquear patrones de variables que sugieran credenciales en claro
+  forbidPlainSecretsLike:
+    - "^AWS_[A-Z0-9_]*KEY"
+    - "^AZURE_[A-Z0-9_]*SECRET"
+    - "^GCP_[A-Z0-9_]*KEY"
+  message: "No declares secretos en env; usa 'secrets:' o variables seguras a nivel repo/org."
+
+# Reglas opcionales adicionales
+auditing:
+  # Exigir que los workflows tengan 'name' y que cada job tenga 'name'
+  requireNames:
+    workflow: true
+    jobs: true
+
+# Severidades por defecto si no se especifica en reglas:
+severityDefaults:
+  errorKeys:
+    - "permissions.missing"
+    - "runners.denied"
+    - "actions.not-allowed"
+    - "actions.invalid-version"
+    - "timeouts.required-missing"
+  warningKeys:
+    - "actions.branch-ref"
+    - "triggers.missing-required"
+    - "triggers.using-prohibited"
+    - "naming.mismatch"
+    - "artifacts.sarif-not-uploaded"
+    - "env.plain-secret"
+  infoKeys:
+    - "auditing.missing-names"

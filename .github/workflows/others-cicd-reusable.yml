@@ -1,0 +1,320 @@
+name: Reusable CI/CD Pipeline
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        type: string
+      ref:
+        description: 'Git ref to checkout'
+        required: false
+        type: string
+        default: ''
+      run-sonar:
+        description: 'Run SonarQube scan'
+        required: false
+        type: boolean
+        default: true
+      run-snyk:
+        description: 'Run Snyk security scan'
+        required: false
+        type: boolean
+        default: true
+      deploy-enabled:
+        description: 'Enable deployment'
+        required: false
+        type: boolean
+        default: true
+    
+    secrets:
+      SONAR_TOKEN:
+        description: 'SonarQube token'
+        required: false
+      SNYK_TOKEN:
+        description: 'Snyk API token'
+        required: false
+      DEPLOY_TOKEN:
+        description: 'Deployment token'
+        required: false
+    
+    outputs:
+      version:
+        description: 'Application version'
+        value: ${{ jobs.prepare.outputs.version }}
+      app-name:
+        description: 'Application name'
+        value: ${{ jobs.prepare.outputs.app_name }}
+      deployment-url:
+        description: 'Deployment URL'
+        value: ${{ jobs.deploy.outputs.url }}
+
+jobs:
+  # ============================================
+  # JOB 1: PREPARATION
+  # ============================================
+  prepare:
+    name: Preparation
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.info.outputs.version }}
+      app_name: ${{ steps.info.outputs.app_name }}
+      commit_sha: ${{ steps.info.outputs.commit_sha }}
+      actor: ${{ steps.info.outputs.actor }}
+      branch: ${{ steps.info.outputs.branch }}
+      build_number: ${{ steps.info.outputs.build_number }}
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 0
+
+      - name: Extract metadata
+        id: info
+        run: |
+          # Extract version from package.json (modify for your project)
+          if [ -f "package.json" ]; then
+            VERSION=$(node -p "require('./package.json').version")
+            APP_NAME=$(node -p "require('./package.json').name")
+          elif [ -f "pom.xml" ]; then
+            VERSION=$(grep -oPm1 "(?<=<version>)[^<]+" pom.xml | head -1)
+            APP_NAME=$(grep -oPm1 "(?<=<artifactId>)[^<]+" pom.xml | head -1)
+          elif [ -f "build.gradle" ]; then
+            VERSION=$(grep "version" build.gradle | head -1 | awk -F"'" '{print $2}')
+            APP_NAME=$(grep "rootProject.name" settings.gradle | awk -F"'" '{print $2}')
+          else
+            VERSION="1.0.0"
+            APP_NAME="app"
+          fi
+          
+          # Common metadata
+          COMMIT_SHA="${{ github.sha }}"
+          ACTOR="${{ github.actor }}"
+          BRANCH="${{ github.ref_name }}"
+          BUILD_NUMBER="${{ github.run_number }}"
+          
+          # Set outputs
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "app_name=$APP_NAME" >> $GITHUB_OUTPUT
+          echo "commit_sha=${COMMIT_SHA:0:7}" >> $GITHUB_OUTPUT
+          echo "actor=$ACTOR" >> $GITHUB_OUTPUT
+          echo "branch=$BRANCH" >> $GITHUB_OUTPUT
+          echo "build_number=$BUILD_NUMBER" >> $GITHUB_OUTPUT
+          
+          # Display info
+          echo "📦 Application: $APP_NAME"
+          echo "🏷️  Version: $VERSION"
+          echo "🔖 Commit: ${COMMIT_SHA:0:7}"
+          echo "👤 Actor: $ACTOR"
+          echo "🌿 Branch: $BRANCH"
+          echo "🔢 Build: $BUILD_NUMBER"
+
+  # ============================================
+  # JOB 2: SONARQUBE SCAN
+  # ============================================
+  sonar-scan:
+    name: SonarQube Analysis
+    runs-on: ubuntu-latest
+    needs: prepare
+    if: inputs.run-sonar && secrets.SONAR_TOKEN != ''
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v10
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 0
+
+      - name: SonarQube Scan
+        uses: sonarsource/sonarqube-scan-action@v1
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
+        with:
+          args: >
+            -Dsonar.projectKey=${{ needs.prepare.outputs.app_name }}
+            -Dsonar.projectName=${{ needs.prepare.outputs.app_name }}
+            -Dsonar.projectVersion=${{ needs.prepare.outputs.version }}
+
+      - name: Quality Gate
+        uses: sonarsource/sonarqube-quality-gate-action@v1
+        timeout-minutes: 5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
+
+  # ============================================
+  # JOB 3: SNYK SECURITY SCAN
+  # ============================================
+  snyk-scan:
+    name: Snyk Security Analysis
+    runs-on: ubuntu-latest
+    needs: prepare
+    if: inputs.run-snyk && secrets.SNYK_TOKEN != ''
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Setup Snyk
+        uses: snyk/actions/setup@v4
+
+      - name: Snyk Code Test
+        run: snyk code test --severity-threshold=high
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        continue-on-error: true
+
+      - name: Snyk Dependency Test
+        run: snyk test --severity-threshold=high --all-projects
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        continue-on-error: true
+
+      - name: Snyk Monitor
+        run: |
+          snyk monitor \
+            --project-name="${{ needs.prepare.outputs.app_name }}" \
+            --target-reference="${{ needs.prepare.outputs.branch }}" \
+            --all-projects
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
+  # ============================================
+  # JOB 4: BUILD
+  # ============================================
+  build:
+    name: Build Application
+    runs-on: ubuntu-latest
+    needs: [prepare, sonar-scan, snyk-scan]
+    if: |
+      always() && 
+      !cancelled() &&
+      needs.prepare.result == 'success' &&
+      (needs.sonar-scan.result == 'success' || needs.sonar-scan.result == 'skipped') &&
+      (needs.snyk-scan.result == 'success' || needs.snyk-scan.result == 'skipped')
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      # Node.js project (adjust for your stack)
+      - name: Setup Node.js
+        if: hashFiles('package.json') != ''
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        if: hashFiles('package.json') != ''
+        run: npm ci
+
+      - name: Build
+        if: hashFiles('package.json') != ''
+        run: npm run build --if-present
+        env:
+          NODE_ENV: ${{ inputs.environment }}
+
+      # Java project (Maven)
+      - name: Setup Java
+        if: hashFiles('pom.xml') != ''
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Build with Maven
+        if: hashFiles('pom.xml') != ''
+        run: mvn clean package -DskipTests
+
+      # Java project (Gradle)
+      - name: Setup Gradle
+        if: hashFiles('build.gradle') != ''
+        uses: gradle/gradle-build-action@v2
+
+      - name: Build with Gradle
+        if: hashFiles('build.gradle') != ''
+        run: ./gradlew build -x test
+
+      # Upload artifacts
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ inputs.environment }}-${{ needs.prepare.outputs.version }}
+          path: |
+            dist/
+            build/
+            target/*.jar
+          retention-days: 7
+
+  # ============================================
+  # JOB 5: DEPLOY
+  # ============================================
+  deploy:
+    name: Deploy to ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    needs: [prepare, build]
+    if: inputs.deploy-enabled
+    environment:
+      name: ${{ inputs.environment }}
+      url: ${{ steps.deploy-step.outputs.url }}
+    outputs:
+      url: ${{ steps.deploy-step.outputs.url }}
+    
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-${{ inputs.environment }}-${{ needs.prepare.outputs.version }}
+
+      - name: Deploy
+        id: deploy-step
+        run: |
+          echo "🚀 Deploying to ${{ inputs.environment }}..."
+          
+          # Your deployment logic here
+          # Examples:
+          # - aws s3 sync dist/ s3://bucket-${{ inputs.environment }}/
+          # - kubectl apply -f k8s/
+          # - docker push image:${{ needs.prepare.outputs.version }}
+          # - curl -X POST https://api.deploy.com/deploy
+          
+          URL="https://${{ inputs.environment }}.example.com"
+          echo "url=$URL" >> $GITHUB_OUTPUT
+          echo "✅ Deployed to: $URL"
+        env:
+          DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
+
+      - name: Health check
+        run: |
+          echo "🏥 Running health check..."
+          sleep 5
+          
+          URL="${{ steps.deploy-step.outputs.url }}"
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" $URL || echo "000")
+          
+          if [ "$HTTP_STATUS" = "200" ] || [ "$HTTP_STATUS" = "302" ]; then
+            echo "✅ Health check passed (HTTP $HTTP_STATUS)"
+          else
+            echo "⚠️ Health check warning (HTTP $HTTP_STATUS)"
+          fi
+
+      - name: Deployment summary
+        run: |
+          echo "### 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Application**: ${{ needs.prepare.outputs.app_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version**: ${{ needs.prepare.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment**: ${{ inputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit**: ${{ needs.prepare.outputs.commit_sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Deployed by**: ${{ needs.prepare.outputs.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **URL**: ${{ steps.deploy-step.outputs.url }}" >> $GITHUB_STEP_SUMMARY

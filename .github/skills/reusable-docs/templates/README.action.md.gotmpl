@@ -1,0 +1,36 @@
+# {{ .action.name }} — Reusable Action
+
+## Descripción
+{{ .action.description | orSuggest "Acción reusable para {{ .purpose }}." }}
+
+> Esta acción define su metadata en `action.yml` (inputs/outputs/runs). Para **composite actions**, el bloque `runs.using: composite` agrupa múltiples steps y requiere `shell` por step.
+
+---
+
+## Inputs
+{{ if .action.inputs }}
+| Nombre | Requerido | Default | Descripción |
+|---|:---:|---|---|
+{{ range .action.inputs }}| `{{ .id }}` | {{ if .required }}✅{{ else }}—{{ end }} | {{ .default | codeOrDash }} | {{ .description | orSuggest }} |
+{{ end }}
+{{ else }}
+_No define inputs._
+{{ end }}
+
+## Outputs
+{{ if .action.outputs }}
+| Nombre | Descripción |
+|---|---|
+{{ range .action.outputs }}| `{{ .id }}` | {{ .description | orSuggest }} |
+{{ end }}
+{{ else }}
+_No define outputs._
+{{ end }}
+
+## Ejemplo de uso
+```yaml
+- name: {{ .action.name }} step
+  uses: {{ .owner }}/{{ .repo }}{{ if .path }}/{{ .path }}{{ end }}@{{ .ref }}
+  with:
+{{ range .action.inputs }}    {{ .id }}: {{ .example | default "<value>" }}
+{{ end }}

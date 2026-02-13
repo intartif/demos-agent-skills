@@ -1,0 +1,164 @@
+name: Reusable CI Security
+
+on:
+  workflow_call:
+    inputs:
+      language:
+        required: true
+        type: string
+      build_command:
+        required: false
+        type: string
+        default: ''
+      sonar_enabled:
+        required: false
+        type: boolean
+        default: false
+      sonar_host_url:
+        required: false
+        type: string
+        default: ''
+      sonar_project_key:
+        required: false
+        type: string
+        default: ''
+      sonar_organization:
+        required: false
+        type: string
+        default: ''
+      snyk_enabled:
+        required: false
+        type: boolean
+        default: false
+      fortify_enabled:
+        required: false
+        type: boolean
+        default: false
+      upload_sarif:
+        required: false
+        type: boolean
+        default: true
+    secrets:
+      SONAR_TOKEN:
+        required: false
+      SNYK_TOKEN:
+        required: false
+      FORTIFY_AUTH_TOKEN:
+        required: false
+      FORTIFY_URL:
+        required: false
+      FORTIFY_PROJECT_ID:
+        required: false
+
+permissions:
+  contents: read
+  security-events: write
+  pull-requests: read
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        if: ${{ inputs.language == 'node' || inputs.language == 'mixed' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Setup Java
+        if: ${{ inputs.language == 'java' || inputs.language == 'mixed' }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Python
+        if: ${{ inputs.language == 'python' || inputs.language == 'mixed' }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Setup .NET
+        if: ${{ inputs.language == 'dotnet' || inputs.language == 'mixed' }}
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Build & Test (optional)
+        if: ${{ inputs.build_command != '' }}
+        run: ${{ inputs.build_command }}
+
+  sonar:
+    if: ${{ inputs.sonar_enabled }}
+    needs: [prepare]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Sonar scan (Cloud or Server)
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          npm i -g sonarqube-scanner || true
+          if [ -z "${{ inputs.sonar_host_url }}" ]; then
+            echo "SonarCloud"
+            npx sonar-scanner \
+              -Dsonar.projectKey=${{ inputs.sonar_project_key }} \
+              -Dsonar.organization=${{ inputs.sonar_organization }} \
+              -Dsonar.sources=. \
+              -Dsonar.host.url=https://sonarcloud.io \
+              -Dsonar.login=$SONAR_TOKEN
+          else
+            echo "SonarQube Server"
+            npx sonar-scanner \
+              -Dsonar.projectKey=${{ inputs.sonar_project_key }} \
+              -Dsonar.sources=. \
+              -Dsonar.host.url=${{ inputs.sonar_host_url }} \
+              -Dsonar.login=$SONAR_TOKEN
+          fi
+
+  snyk:
+    if: ${{ inputs.snyk_enabled }}
+    needs: [prepare]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: snyk/actions/setup@v4
+      - name: Auth Snyk
+        run: snyk auth ${{ secrets.SNYK_TOKEN }}
+      - name: Snyk Open Source (SCA) → SARIF
+        continue-on-error: true
+        run: snyk test --all-projects --sarif-file-output=snyk-sca.sarif
+      - name: Snyk Code (SAST) → SARIF
+        continue-on-error: true
+        run: snyk code test --sarif-file-output=snyk-code.sarif
+      - name: Upload SARIF (Snyk)
+        if: ${{ inputs.upload_sarif }}
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: .
+
+  fortify:
+    if: ${{ inputs.fortify_enabled }}
+    needs: [prepare]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fortify SAST (script genérico)
+        env:
+          FORTIFY_AUTH_TOKEN: ${{ secrets.FORTIFY_AUTH_TOKEN }}
+          FORTIFY_URL: ${{ secrets.FORTIFY_URL }}
+          FORTIFY_PROJECT_ID: ${{ secrets.FORTIFY_PROJECT_ID }}
+        run: |
+          chmod +x scripts/fortify_scan.sh
+          ./scripts/fortify_scan.sh
+      - name: Upload SARIF (Fortify)
+        if: ${{ inputs.upload_sarif }}
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: fortify-results.sarif

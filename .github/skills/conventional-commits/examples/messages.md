@@ -1,0 +1,3 @@
+- feat(cli): add --dry-run flag for previewing changes
+- fix(db): correct null handling in migration 20260212
+- docs(readme): clarify setup for local dev

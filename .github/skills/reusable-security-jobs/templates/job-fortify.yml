@@ -1,0 +1,16 @@
+fortify:
+  runs-on: ubuntu-latest
+  steps:
+    - uses: actions/checkout@v4
+    - name: Fortify SAST (script genérico)
+      env:
+        FORTIFY_AUTH_TOKEN: ${{ secrets.FORTIFY_AUTH_TOKEN }}
+        FORTIFY_URL: ${{ secrets.FORTIFY_URL }}
+        FORTIFY_PROJECT_ID: ${{ secrets.FORTIFY_PROJECT_ID }}
+      run: |
+        chmod +x scripts/fortify_scan.sh
+        ./scripts/fortify_scan.sh
+    - name: Upload SARIF
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: fortify-results.sarif

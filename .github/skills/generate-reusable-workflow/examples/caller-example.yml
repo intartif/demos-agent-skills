@@ -1,0 +1,22 @@
+name: CI (caller)
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+
+jobs:
+  use-reusable:
+    uses: org/workflows/.github/workflows/reusable-ci-security-build-deploy.yml@v1
+    with:
+      app_name: "payments-api"
+      tech: "typescript"
+      runner: "ubuntu-latest"
+      sonar_project_key: "org:payments-api"
+      snyk_fail_on: "high"
+      run_deploy: false
+    secrets:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}

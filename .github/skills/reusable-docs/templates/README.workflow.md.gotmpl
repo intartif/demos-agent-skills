@@ -1,0 +1,77 @@
+# {{ .name }} — Reusable Workflow
+
+## Descripción
+{{ .description | default "Reusable workflow para {{ .purpose }}. Se invoca con `workflow_call` y expone entradas/secretos/outputs para ser consumidos desde otros repos o workflows." }}
+
+> Este workflow está diseñado para ser llamado con **`on: workflow_call`**. Usa **inputs** y **secrets** definidos en el bloque `on.workflow_call` y puede exponer **outputs** a su caller. [1](https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows)
+
+---
+
+## Inputs
+{{ if .inputs }}
+| Nombre | Tipo | Requerido | Default | Descripción |
+|---|---|:---:|---|---|
+{{ range .inputs }}| `{{ .id }}` | `{{ .type | default "string" }}` | {{ if .required }}✅{{ else }}—{{ end }} | {{ .default | codeOrDash }} | {{ .description | orSuggest }} |
+{{ end }}
+{{ else }}
+_No define inputs._
+{{ end }}
+
+## Secrets
+{{ if .secrets }}
+| Nombre | Requerido | Descripción |
+|---|:---:|---|
+{{ range .secrets }}| `{{ .id }}` | {{ if .required }}✅{{ else }}—{{ end }} | {{ .description | orSuggest }} |
+{{ end }}
+{{ else }}
+_No define secrets._
+{{ end }}
+
+## Outputs
+{{ if .outputs }}
+| Nombre | Descripción |
+|---|---|
+{{ range .outputs }}| `{{ .id }}` | {{ .description | orSuggest }} |
+{{ end }}
+{{ else }}
+_No expone outputs de workflow._
+{{ end }}
+
+---
+
+## Jobs
+{{ range .jobs }}
+### `{{ .id }}` — {{ .name | default .id }}
+- **Runner:** `{{ .runsOn }}`
+- **Needs:** {{ .needs | listOrDash }}
+- **Permissions:** {{ .permissions | inlinePermsOrDash }}
+
+#### Steps
+{{ if .steps }}
+{{ range .steps }}- **{{ .name | default (printf "%s/%s" .uses .shell) }}**  
+  {{ if .if }}  _if:_ `{{ .if }}`  
+  {{ end }}  {{ if .uses }}_uses:_ `{{ .uses }}`{{ end }}{{ if .run }}_run:_ `{{ .run | firstLine }}`{{ end }}
+{{ end }}
+{{ else }}
+_(sin steps definidos)_
+{{ end }}
+
+---
+{{ end }}
+
+## Summary
+- **Runners soportados:** {{ .runners | listOrDash }}  
+- **Permisos mínimos:** {{ .allPermissions | inlinePermsOrDash }}  
+- **Eventos:** `workflow_call` (reutilizable) [1](https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows)  
+- **Límites de reuso/anidamiento:** consulta “Reusing workflow configurations” (accesibilidad, nesting, variables y outputs). [2](https://docs.github.com/en/actions/reference/workflows-and-actions/reusing-workflow-configurations)
+
+## Uso (caller)
+```yaml
+jobs:
+  use-{{ .slug }}:
+    uses: {{ .owner }}/{{ .repo }}/.github/workflows/{{ .file }}@{{ .ref }}
+    with:
+{{ range .inputs }}      {{ .id }}: {{ .example | default "<value>" }}
+{{ end }}    secrets:
+{{ range .secrets }}      {{ .id }}: ${{ "{{ secrets." }}{{ .suggested | default .id | upper }}{{ " }}" }}
+{{ end }}
