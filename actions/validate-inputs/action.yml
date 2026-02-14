@@ -1,3 +1,5 @@
+name: validate-inputs
+description: "Valida inputs requeridos y opcionales"
 inputs:
   app-name:
     description: "Nombre de la aplicación"

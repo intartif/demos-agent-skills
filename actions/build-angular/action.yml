@@ -1,4 +1,5 @@
 name: build-angular
+description: "Build de proyectos Angular"
 inputs:
   node-version:
     required: false
@@ -9,7 +10,7 @@ inputs:
 runs:
   using: "composite"
   steps:
-      - uses: actions/checkout@v14
+      - uses: actions/checkout@v4
 
       - name: Setup Node
         uses: actions/setup-node@v4
