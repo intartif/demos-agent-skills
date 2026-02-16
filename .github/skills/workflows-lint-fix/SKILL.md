@@ -44,9 +44,16 @@ metadata:
   - `scripts/validate-actions-versions.sh` (requiere `jq`).
 6. Corregir versiones irreales/no soportadas con:
   - `scripts/fix-actions-versions.sh`.
-7. Mostrar un reporte de advertencias, errores y mejoras encontradas por cada archivo, con fragmentos antes/después para cada fix sugerido.
+7. Mostrar obligatoriamente un reporte y para ello debo usar el formato de salida definido en la sección "Formato de salida (OBLIGATORIO)".
 8. Al finalizar el reporte, solicitar al usuario si desea aplicar los cambios encontrados.
 9. Si el usuario acepta, aplicar los fixes automáticamente.
+
+## **Formato de salida (OBLIGATORIO)**
+Mostrar en el paso 7. Debo mostrar el reporte en Markdown con:
+## WORKFLOW ANALIZADO (mostrar la ruta completa del archivo)
+### Resumen de hallazgos (número de errores, advertencias, mejoras)
+### Detalles de cada hallazgo (tipo, mensaje)
+#### Por cada hallazgo debo mostrar en un bloque de Codigo el antes/después (si aplica)
 
 ## Checklist de calidad
 - [ ] Detecta claves y estructura YAML inválida.

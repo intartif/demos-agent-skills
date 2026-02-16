@@ -30,10 +30,10 @@ metadata:
 - Propuestas de fixes YAML cuando corresponda.
 
 ## Pasos
-1. Descubrir y parsear los workflows YAML.
+1. **Antes de cualquier análisis, solicitar explícitamente al usuario qué workflows desea analizar** (todas o selección específica). No continuar hasta recibir respuesta.
 2. Cargar reglas y allowlist corporativa.
 3. Analizar estructura, claves y cumplimiento de políticas.
-4. Emitir anotaciones y sugerencias de fixes.
+4. Mostrar obligatoriamente un reporte y para ello debo usar el formato de salida definido en la sección "Formato de salida (OBLIGATORIO)".
 5. (Opcional) Aplicar autofix guiado si el usuario lo autoriza.
 
 ## Checklist de calidad
@@ -46,6 +46,11 @@ metadata:
 - [ ] Timeouts y matrices definidos donde aplica.
 - [ ] Todos los archivos de workflows y actions reusables deben usar la extensión `.yml` (no `.yaml`).
 
+## **Formato de salida (OBLIGATORIO)**
+Debo mostrar el reporte en Markdown con:
+## WORKFLOW ANALIZADO (mostrar la ruta completa del archivo)
+### Detalles de cada hallazgo (tipo semáforo, mensaje descriptivo)
+### Por cada hallazgo debo mostrar en un bloque de Codigo el antes/después (solo si aplica)
 
 ## Ejemplos
 **Entrada**
