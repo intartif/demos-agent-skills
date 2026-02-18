@@ -26,37 +26,47 @@ on:
       creator:
         required: true
         type: string
-    secrets:
-      SNYK_TOKEN:
-        required: false
-      GH_TOKEN:
-        required: false
 
 jobs:
 
   assign-issue:
     runs-on: ubuntu-latest
     steps:
-      - name: Assign issue and comment
+      - name: Assign issue and comment (with debug)
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            async ({ github, context }) => {
+            async ({ github, context, core }) => {
               const issueId = parseInt('${{ inputs.issue-id }}', 10);
               const creator = '${{ inputs.creator }}';
-              await github.issues.addAssignees({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: issueId,
-                assignees: [creator]
-              });
-              await github.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: issueId,
-                body: `Atención iniciada por @${creator}.`
-              });
+              core.info(`Context: ${JSON.stringify(context, null, 2)}`);
+              let assignRes, commentRes;
+              try {
+                assignRes = await github.issues.addAssignees({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueId,
+                  assignees: [creator]
+                });
+                core.info(`Assign response: ${JSON.stringify(assignRes, null, 2)}`);
+              } catch (e) {
+                core.error(`Error assigning: ${e.message}`);
+                core.error(JSON.stringify(e, null, 2));
+              }
+              try {
+                commentRes = await github.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueId,
+                  body: `Atención iniciada por @${creator}.`
+                });
+                core.info(`Comment response: ${JSON.stringify(commentRes, null, 2)}`);
+              } catch (e) {
+                core.error(`Error commenting: ${e.message}`);
+                core.error(JSON.stringify(e, null, 2));
+              }
+            }
             }
 
   format:
