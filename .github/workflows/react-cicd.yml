@@ -37,36 +37,33 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            async ({ github, context, core }) => {
-              const issueId = parseInt('${{ inputs.issue-id }}', 10);
-              const creator = '${{ inputs.creator }}';
-              core.info(`Context: ${JSON.stringify(context, null, 2)}`);
-              let assignRes, commentRes;
-              try {
-                assignRes = await github.issues.addAssignees({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: issueId,
-                  assignees: [creator]
-                });
-                core.info(`Assign response: ${JSON.stringify(assignRes, null, 2)}`);
-              } catch (e) {
-                core.error(`Error assigning: ${e.message}`);
-                core.error(JSON.stringify(e, null, 2));
-              }
-              try {
-                commentRes = await github.issues.createComment({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: issueId,
-                  body: `Atención iniciada por @${creator}.`
-                });
-                core.info(`Comment response: ${JSON.stringify(commentRes, null, 2)}`);
-              } catch (e) {
-                core.error(`Error commenting: ${e.message}`);
-                core.error(JSON.stringify(e, null, 2));
-              }
+            const issueId = parseInt('${{ inputs.issue-id }}', 10);
+            const creator = '${{ inputs.creator }}';
+            core.info(`Context: ${JSON.stringify(context, null, 2)}`);
+            let assignRes, commentRes;
+            try {
+              assignRes = await github.issues.addAssignees({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueId,
+                assignees: [creator]
+              });
+              core.info(`Assign response: ${JSON.stringify(assignRes, null, 2)}`);
+            } catch (e) {
+              core.error(`Error assigning: ${e.message}`);
+              core.error(JSON.stringify(e, null, 2));
             }
+            try {
+              commentRes = await github.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueId,
+                body: `Atención iniciada por @${creator}.`
+              });
+              core.info(`Comment response: ${JSON.stringify(commentRes, null, 2)}`);
+            } catch (e) {
+              core.error(`Error commenting: ${e.message}`);
+              core.error(JSON.stringify(e, null, 2));
             }
 
   format:
@@ -177,33 +174,31 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            async ({ github, context }) => {
-              const issueId = parseInt('${{ inputs.issue-id }}', 10);
-              const jobs = [
-                'format', 'type-check', 'lint', 'snyk-scan', 'unit-test', 'build', 'deploy'
-              ];
-              let failed = false;
-              for (const job of jobs) {
-                if (process.env[`JOB_${job.toUpperCase()}_RESULT`] === 'failure') {
-                  failed = true;
-                  break;
-                }
+            const issueId = parseInt('${{ inputs.issue-id }}', 10);
+            const jobs = [
+              'format', 'type-check', 'lint', 'snyk-scan', 'unit-test', 'build', 'deploy'
+            ];
+            let failed = false;
+            for (const job of jobs) {
+              if (process.env[`JOB_${job.toUpperCase()}_RESULT`] === 'failure') {
+                failed = true;
+                break;
               }
-              const message = failed
-                ? 'El workflow ha fallado en uno o más jobs.'
-                : 'El workflow se completó exitosamente.';
-              await github.issues.createComment({
+            }
+            const message = failed
+              ? 'El workflow ha fallado en uno o más jobs.'
+              : 'El workflow se completó exitosamente.';
+            await github.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueId,
+              body: message
+            });
+            if (!failed) {
+              await github.issues.update({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issueId,
-                body: message
+                state: 'closed'
               });
-              if (!failed) {
-                await github.issues.update({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: issueId,
-                  state: 'closed'
-                });
-              }
             }
