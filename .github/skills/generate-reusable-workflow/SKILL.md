@@ -24,22 +24,15 @@ metadata:
 - YAML del workflow generado.
 - Mensaje de confirmación y advertencia si el archivo existe.
 
-## Pasos del Skill
 
-1. **Listar workflows disponibles**
-   - Se listan todos los workflows existentes en `.github/workflows/`.
-   - El usuario debe seleccionar uno como base.
-
-2. **Seleccionar jobs a incluir**
-   - Se muestran los jobs definidos en el workflow base seleccionado.
-   - El usuario debe seleccionar uno o más jobs a incluir en el nuevo workflow.
-
-3. **Indicar nombre del nuevo workflow**
-   - El usuario debe ingresar el nombre del nuevo workflow (tanto el nombre visible como el nombre de archivo YAML).
-
-4. **Generar el nuevo workflow**
+## Pasos 
+1. **Antes de cualquier análisis, solicitar explícitamente al usuario qué workflows desea analizar** (todas o selección específica). No continuar hasta recibir respuesta.
+2. **Antes de continuar la generación del workflow, solicitar explícitamente al usuario que jobs del workflow seleccionado se deben incluir en la generación del workflow nuevo** (todos o selección específica). No continuar hasta recibir respuesta
+3. **Antes de continuar la generación del workflow, solicitar explícitamente al usuario el nombre del workflow nuevo, solo si no fue indicado en la solicitud inicial del usuario**
+4. Generar el nuevo workflow, solo después de completar los pasos anteriores. Para ello considera lo siguiente:
    - Se crea un nuevo archivo YAML en `.github/workflows/`.
    - El workflow generado incluye solo los jobs seleccionados.
+   - Si los jobs que no fueron seleccionados, son dependencias de otros jobs, esos jobs tambien deben excluir. Excepto los jobs que incluyen como dependencia multiples jobs (ejemplo: needs: [job1, job2, job4])
    - Se agrega un comentario en la cabecera indicando que fue generado mediante agent skills.
 
 ## Checklist de calidad

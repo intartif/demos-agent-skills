@@ -251,6 +251,60 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
 
+  format:
+    name: Format
+    runs-on: ubuntu-latest
+    needs: checkout
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: 'npm'
+
+      - name: Restaurar dependencias
+        uses: actions/cache@v24
+        with:
+          path: node_modules
+          key: ${{ needs.setup.outputs.cache-key }}
+
+      - name: Ejecutar Format
+        run: |
+          echo "🎨 Ejecutando Format..."
+          npm run format --if-present || echo "No hay script de format definido."
+
+  type-check:
+    name: Type Check
+    runs-on: ubuntu-latest
+    needs: format
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: 'npm'
+
+      - name: Restaurar dependencias
+        uses: actions/cache@v24
+        with:
+          path: node_modules
+          key: ${{ needs.setup.outputs.cache-key }}
+
+      - name: Ejecutar Type Check
+        run: |
+          echo "🔎 Ejecutando Type Check..."
+          npm run type-check --if-present || ng build --no-output --configuration=development --aot
+
   # ============================================
   # JOB 4: TESTS UNITARIOS
   # ============================================
