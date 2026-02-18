@@ -23,6 +23,9 @@ on:
       issue-id:
         required: true
         type: string
+      creator:
+        required: true
+        type: string
     secrets:
       SNYK_TOKEN:
         required: false
@@ -30,8 +33,33 @@ on:
         required: false
 
 jobs:
+
+  assign-issue:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Assign issue and comment
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const issueId = parseInt('${{ inputs.issue-id }}', 10);
+            const creator = '${{ inputs.creator }}';
+            await github.issues.addAssignees({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueId,
+              assignees: [creator]
+            });
+            await github.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueId,
+              body: `Atención iniciada por @${creator}.`
+            });
+
   format:
     runs-on: ubuntu-latest
+    needs: assign-issue
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-node@v3
