@@ -113,7 +113,7 @@ jobs:
           node-version: 16
       - run: npm install
       - name: Run Snyk
-        uses: snyk/actions/node@v3
+        uses: snyk/actions/node@v1
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
