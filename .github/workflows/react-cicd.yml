@@ -162,14 +162,7 @@ jobs:
 
   close-issue:
     runs-on: ubuntu-latest
-    needs:
-      - deploy
-      - build
-      - unit-test
-      - snyk-scan
-      - lint
-      - type-check
-      - format
+    needs: [deploy, build, unit-test, snyk-scan, lint, type-check, format]
     if: always()
     steps:
       - name: Update issue with result
