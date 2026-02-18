@@ -35,7 +35,7 @@ jobs:
       - name: Assign issue and comment (with debug)
         uses: actions/github-script@v6
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.GH_TOKEN }}
           script: |
             const issueId = parseInt('${{ inputs.issue-id }}', 10);
             const creator = '${{ inputs.creator }}';
@@ -154,7 +154,7 @@ jobs:
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ secrets.GH_TOKEN }}
           publish_dir: ./build
 
   update-issue:
@@ -172,7 +172,7 @@ jobs:
       - name: Update issue with result
         uses: actions/github-script@v6
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.GH_TOKEN }}
           script: |
             const issueId = parseInt('${{ inputs.issue-id }}', 10);
             const jobs = [
