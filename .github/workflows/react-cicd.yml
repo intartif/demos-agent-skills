@@ -40,6 +40,9 @@ jobs:
             const issueId = parseInt('${{ inputs.issue-id }}', 10);
             const creator = '${{ inputs.creator }}';
             core.info(`Context: ${JSON.stringify(context, null, 2)}`);
+            core.info(`typeof github: ${typeof github}`);
+            core.info(`github keys: ${Object.keys(github)}`);
+            core.info(`typeof github.issues: ${typeof github.issues}`);
             let assignRes, commentRes;
             try {
               assignRes = await github.issues.addAssignees({
