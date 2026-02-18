@@ -1,61 +1,76 @@
 ---
 name: generate-reusable-workflow
-description: Genera y mantiene un workflow reusable de CI/Sec/Build/Deploy a partir de la plantilla corporativa, parametrizado por tecnología y con deploy opcional.
+description: Permite crear un workflow reusable a partir de uno existente, seleccionando jobs y nombre final.
 license: Apache-2.0
 compatibility: [claude, vscode-copilot, cursor]
 metadata:
-  domain: cicd
-  skill_id: cicd.workflows.generate-reusable-workflow
+   domain: cicd
+   skill_id: cicd.workflows.generate-reusable-workflow
 ---
 
 # cicd.workflows.generate-reusable-workflow
 
 ## Cuándo usar
-- Cuando se necesite publicar o actualizar el reusable corporativo en `org/workflows` o un repo de plataforma.
-- Cuando un equipo requiera un pipeline estándar para múltiples stacks con mínima configuración.
+- Cuando se requiera crear un workflow reusable basado en uno existente, seleccionando jobs específicos.
+- Cuando se necesite personalizar un workflow a partir de una plantilla previa.
 
 ## Entradas
-- `inputs.tech`: tecnología (`python`, `typescript`, `kotlin`, `swift`, `java`, `dotnet`, `go`, `node`)
-- `inputs.runner`: runner (por defecto `ubuntu-latest`, permite `macos-latest` para iOS/Swift)
-- `build_cmd`: comando de build (opcional)
-- `deploy_cmd`: comando de deploy (opcional)
-- `run_deploy`: activar/desactivar deploy
-- Secrets para Sonar, Snyk, Deploy (opt-in)
+- `workflow_base`: nombre del workflow base a copiar.
+- `jobs`: lista de jobs a incluir.
+- `workflow_name`: nombre visible del nuevo workflow.
+- `filename`: nombre del archivo YAML destino.
 
 ## Salidas
-- YAML del reusable listo para usar
-- Ejemplos de caller
-- Mensajes claros si faltan secretos
+- YAML del workflow generado.
+- Mensaje de confirmación y advertencia si el archivo existe.
 
-## Pasos
-1. Crear o actualizar el archivo en `templates/reusable-ci-security-build-deploy.yml` con la plantilla base y parámetros.
-2. Seleccionar comandos por defecto según tecnología si no se proveen.
-3. Respetar `run_deploy` para activar/desactivar el job de deploy.
-4. No exponer secretos ni ecos en claro; hacer skip si faltan tokens.
-5. Entregar YAML y ejemplos de uso.
+## Pasos del Skill
+
+1. **Listar workflows disponibles**
+   - Se listan todos los workflows existentes en `.github/workflows/`.
+   - El usuario debe seleccionar uno como base.
+
+2. **Seleccionar jobs a incluir**
+   - Se muestran los jobs definidos en el workflow base seleccionado.
+   - El usuario debe seleccionar uno o más jobs a incluir en el nuevo workflow.
+
+3. **Indicar nombre del nuevo workflow**
+   - El usuario debe ingresar el nombre del nuevo workflow (tanto el nombre visible como el nombre de archivo YAML).
+
+4. **Generar el nuevo workflow**
+   - Se crea un nuevo archivo YAML en `.github/workflows/`.
+   - El workflow generado incluye solo los jobs seleccionados.
+   - Se agrega un comentario en la cabecera indicando que fue generado mediante agent skills.
 
 ## Checklist de calidad
-- [ ] Usa pin de actions por versión mayor.
-- [ ] Permisos mínimos y explícitos.
-- [ ] Comandos por defecto según tecnología.
-- [ ] Mensajes claros ante falta de secretos.
-- [ ] Ejemplo de caller incluido.
+- [ ] No sobrescribe workflows existentes.
+- [ ] Permite seleccionar uno o más jobs.
+- [ ] Permite definir nombre visible y archivo.
+- [ ] Agrega comentario de generación por agent skills.
+- [ ] Mensajes claros ante conflictos o errores.
 
 ## Ejemplos
 **Entrada**
-- tech: typescript
-- sonar_project_key: org:app
+- workflow_base: build-and-test.yml
+- jobs: [build, test]
+- workflow_name: CI Build & Test
+- filename: ci-build-test.yml
 
 **Salida**
-- YAML reusable con steps de build y Sonar.
+- YAML generado con los jobs seleccionados y comentario de generación.
 
 **Entrada**
-- tech: python
-- run_deploy: false
+- workflow_base: deploy-app.yml
+- jobs: [deploy]
+- workflow_name: Deploy Only
+- filename: deploy-only.yml
 
 **Salida**
-- YAML reusable sin job de deploy.
+- YAML generado solo con el job deploy.
 
 ## Referencias
-- templates/reusable-ci-security-build-deploy.yml
-- examples/caller-example.yml
+- .github/workflows/
+- Ejemplo de comentario:
+   ```yaml
+   # Este workflow fue generado automáticamente mediante agent skills (generate-reusable-workflow)
+   ```
