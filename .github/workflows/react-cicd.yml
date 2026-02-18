@@ -1,0 +1,167 @@
+name: React CI/CD Reusable
+
+description: 'Reusable workflow for CI/CD with conditional jobs'
+
+on:
+  workflow_call:
+    inputs:
+      branch:
+        required: true
+        type: string
+      apply-test:
+        required: true
+        type: string
+      apply-snyk:
+        required: true
+        type: string
+      apply-build:
+        required: true
+        type: string
+      apply-deploy:
+        required: true
+        type: string
+      issue-id:
+        required: true
+        type: string
+    secrets:
+      SNYK_TOKEN:
+        required: false
+      GITHUB_TOKEN:
+        required: false
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 16
+      - run: npm install
+      - run: npm run format
+
+  type-check:
+    runs-on: ubuntu-latest
+    needs: format
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 16
+      - run: npm install
+      - run: npm run flow
+
+  lint:
+    runs-on: ubuntu-latest
+    needs: type-check
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 16
+      - run: npm install
+      - run: npm run lint
+
+  snyk-scan:
+    if: ${{ inputs.apply-snyk == 'Sí' }}
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 16
+      - run: npm install
+      - name: Run Snyk
+        uses: snyk/actions/node@v3
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          command: test
+
+  unit-test:
+    if: ${{ inputs.apply-test == 'Sí' && (inputs.apply-snyk != 'Sí' || needs.snyk-scan.result == 'success') }}
+    needs: [lint, snyk-scan]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 16
+      - run: npm install
+      - run: npm run unit
+
+  build:
+    if: ${{ inputs.apply-build == 'Sí' && (inputs.apply-snyk != 'Sí' || needs.snyk-scan.result == 'success') }}
+    needs: [lint, snyk-scan, unit-test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 16
+      - run: npm install
+      - run: npm run build
+
+  deploy:
+    if: ${{ inputs.apply-deploy == 'Sí' && (inputs.apply-snyk != 'Sí' || needs.snyk-scan.result == 'success') }}
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 16
+      - run: npm install
+      - run: npm run build
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./build
+
+  update-issue:
+    runs-on: ubuntu-latest
+    needs:
+      - deploy
+      - build
+      - unit-test
+      - snyk-scan
+      - lint
+      - type-check
+      - format
+    if: always()
+    steps:
+      - name: Update issue with result
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const issueId = parseInt('${{ inputs.issue-id }}', 10);
+            const jobs = [
+              'format', 'type-check', 'lint', 'snyk-scan', 'unit-test', 'build', 'deploy'
+            ];
+            let failed = false;
+            for (const job of jobs) {
+              if (process.env[`JOB_${job.toUpperCase()}_RESULT`] === 'failure') {
+                failed = true;
+                break;
+              }
+            }
+            const message = failed
+              ? 'El workflow ha fallado en uno o más jobs.'
+              : 'El workflow se completó exitosamente.';
+            await github.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueId,
+              body: message
+            });
+            if (!failed) {
+              await github.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueId,
+                state: 'closed'
+              });
+            }
