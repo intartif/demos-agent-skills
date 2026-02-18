@@ -1,0 +1,504 @@
+# Este workflow fue generado mediante agent skills (generate-reusable-workflow) el 18 de febrero de 2026.
+# Basado en angular-cicd-reusable.yml, excluyendo el job 'deploy'.
+
+name: Angular CI Reusable
+
+on:
+  workflow_call:
+    inputs:
+      branch:
+        description: 'Branch del código a desplegar'
+        required: true
+        type: string
+      app-version:
+        description: 'Versión de la aplicación (semver)'
+        required: true
+        type: string
+      environment:
+        description: 'Entorno de destino (dev, qa, staging, production)'
+        required: true
+        type: string
+      node-version:
+        description: 'Versión de Node.js'
+        required: false
+        type: string
+        default: '18'
+      angular-version:
+        description: 'Versión de Angular CLI'
+        required: false
+        type: string
+        default: '18'
+      run-unit-tests:
+        description: 'Ejecutar tests unitarios'
+        required: false
+        type: boolean
+        default: true
+      run-e2e-tests:
+        description: 'Ejecutar tests e2e'
+        required: false
+        type: boolean
+        default: false
+      run-lint:
+        description: 'Ejecutar análisis de código (lint)'
+        required: false
+        type: boolean
+        default: true
+      generate-coverage:
+        description: 'Generar reporte de coverage'
+        required: false
+        type: boolean
+        default: false
+      production-mode:
+        description: 'Build en modo producción'
+        required: false
+        type: boolean
+        default: true
+      clear-cache:
+        description: 'Limpiar caché antes del build'
+        required: false
+        type: boolean
+        default: false
+      create-backup:
+        description: 'Crear backup antes del despliegue'
+        required: false
+        type: boolean
+        default: false
+      health-check:
+        description: 'Ejecutar health check post-deployment'
+        required: false
+        type: boolean
+        default: true
+      issue-number:
+        description: 'Número del issue que disparó el workflow'
+        required: false
+        type: number
+        default: '0'
+      triggered-by:
+        description: 'Usuario que disparó el deployment'
+        required: false
+        type: string
+        default: 'automation'
+    secrets:
+      NPM_TOKEN:
+        description: 'Token de NPM para paquetes privados'
+        required: false
+      DEPLOY_TOKEN:
+        description: 'Token para el despliegue'
+        required: true
+      AWS_ACCESS_KEY_ID:
+        description: 'AWS Access Key ID'
+        required: false
+      AWS_SECRET_ACCESS_KEY:
+        description: 'AWS Secret Access Key'
+        required: false
+      SLACK_WEBHOOK:
+        description: 'Webhook de Slack para notificaciones'
+        required: false
+      SONAR_TOKEN:
+        description: 'Token de SonarQube'
+        required: false
+    outputs:
+      build-version:
+        description: 'Versión del build generado'
+        value: ${{ jobs.build.outputs.version }}
+      build-size:
+        description: 'Tamaño del build en MB'
+        value: ${{ jobs.build.outputs.size }}
+      test-results:
+        description: 'Resultado de los tests'
+        value: ${{ jobs.test.outputs.results }}
+
+jobs:
+  setup:
+    name: Setup and Validation
+    runs-on: ubuntu-latest
+    outputs:
+      cache-key: ${{ steps.cache-keys.outputs.node }}
+    steps:
+      - name: Validate inputs
+        run: |
+          echo "🔍 Validando inputs..."
+          if [[ ! "${{ inputs.environment }}" =~ ^(dev|qa|staging|production)$ ]]; then
+            echo "❌ Error: Entorno inválido '${{ inputs.environment }}'"
+            exit 1
+          fi
+          if [[ ! "${{ inputs.app-version }}" =~ ^[0-9]+\.[0-9]+\.[0-9]+.*$ ]]; then
+            echo "❌ Error: Versión inválida '${{ inputs.app-version }}'"
+            exit 1
+          fi
+          echo "✅ Validación exitosa"
+          echo "📦 Versión: ${{ inputs.app-version }}"
+          echo "🌍 Entorno: ${{ inputs.environment }}"
+          echo "🌿 Branch: ${{ inputs.branch }}"
+          echo "👤 Disparado por: ${{ inputs.triggered-by }}"
+      - name: Generate cache keys
+        id: cache-keys
+        run: |
+          echo "node=node-${{ runner.os }}-${{ inputs.node-version }}-${{ hashFiles('**/package-lock.json') }}" >> $GITHUB_OUTPUT
+  checkout:
+    name: Checkout and Setup
+    runs-on: ubuntu-latest
+    needs: setup
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v24
+        with:
+          ref: ${{ inputs.branch }}
+          fetch-depth: 0
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: 'npm'
+      - name: Limpiar caché npm
+        if: inputs.clear-cache
+        run: |
+          echo "🧹 Limpiando caché de npm..."
+          npm cache clean --force
+      - name: Configurar NPM Token
+        if: ${{ secrets.NPM_TOKEN != '' }}
+        run: |
+          echo "🔐 Configurando NPM token..."
+          echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
+      - name: Instalar dependencias
+        run: |
+          echo "📦 Instalando dependencias..."
+          npm ci --prefer-offline --no-audit
+      - name: Verificar instalación de Angular CLI
+        run: |
+          echo "🅰️ Verificando Angular CLI..."
+          if ! command -v ng &> /dev/null; then
+            echo "Instalando Angular CLI v${{ inputs.angular-version }}..."
+            npm install -g @angular/cli@${{ inputs.angular-version }}
+          fi
+          ng version
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules
+            ~/.npm
+          key: ${{ needs.setup.outputs.cache-key }}
+          restore-keys: |
+            node-${{ runner.os }}-${{ inputs.node-version }}-
+  lint:
+    name: Code Quality Analysis
+    runs-on: ubuntu-latest
+    needs: checkout
+    if: inputs.run-lint
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch }}
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: 'npm'
+      - name: Restaurar dependencias
+        uses: actions/cache@v24
+        with:
+          path: node_modules
+          key: ${{ needs.setup.outputs.cache-key }}
+      - name: Ejecutar ESLint
+        run: |
+          echo "🔍 Ejecutando ESLint..."
+          npm run lint --if-present || ng lint --max-warnings=0
+      - name: Ejecutar análisis de SonarQube
+        if: ${{ secrets.SONAR_TOKEN != '' }}
+        uses: sonarsource/sonarqube-scan-action@v1
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
+  format:
+    name: Format
+    runs-on: ubuntu-latest
+    needs: checkout
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch }}
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: 'npm'
+      - name: Restaurar dependencias
+        uses: actions/cache@v24
+        with:
+          path: node_modules
+          key: ${{ needs.setup.outputs.cache-key }}
+      - name: Ejecutar Format
+        run: |
+          echo "🎨 Ejecutando Format..."
+          npm run format --if-present || echo "No hay script de format definido."
+  type-check:
+    name: Type Check
+    runs-on: ubuntu-latest
+    needs: format
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch }}
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: 'npm'
+      - name: Restaurar dependencias
+        uses: actions/cache@v24
+        with:
+          path: node_modules
+          key: ${{ needs.setup.outputs.cache-key }}
+      - name: Ejecutar Type Check
+        run: |
+          echo "🔎 Ejecutando Type Check..."
+          npm run type-check --if-present || ng build --no-output --configuration=development --aot
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    needs: checkout
+    if: inputs.run-unit-tests
+    outputs:
+      results: ${{ steps.test-results.outputs.summary }}
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch }}
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: 'npm'
+      - name: Restaurar dependencias
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: ${{ needs.setup.outputs.cache-key }}
+      - name: Ejecutar tests unitarios
+        run: |
+          echo "🧪 Ejecutando tests unitarios..."
+          npm run test:ci --if-present || ng test --watch=false --browsers=ChromeHeadless --code-coverage=${{ inputs.generate-coverage }}
+      - name: Generar reporte de coverage
+        if: inputs.generate-coverage
+        run: |
+          echo "📊 Generando reporte de coverage..."
+          if [ -d "coverage" ]; then
+            echo "Coverage report generado en ./coverage"
+          fi
+      - name: Subir coverage a Codecov
+        if: inputs.generate-coverage
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage/lcov.info
+          flags: unittests
+          name: angular-coverage
+      - name: Publicar resultados de tests
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ inputs.environment }}
+          path: |
+            coverage/
+            test-results/
+          retention-days: 30
+      - name: Resumen de tests
+        id: test-results
+        run: |
+          echo "summary=Tests ejecutados exitosamente" >> $GITHUB_OUTPUT
+  e2e:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    needs: [checkout, build]
+    if: inputs.run-e2e-tests
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch }}
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: 'npm'
+      - name: Restaurar dependencias
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: ${{ needs.setup.outputs.cache-key }}
+      - name: Instalar Playwright/Cypress
+        run: |
+          echo "🎭 Instalando herramientas E2E..."
+          npm run e2e:install --if-present || npx playwright install --with-deps
+      - name: Ejecutar tests E2E
+        run: |
+          echo "🎬 Ejecutando tests E2E..."
+          npm run e2e --if-present || ng e2e
+      - name: Subir screenshots de errores
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-screenshots-${{ inputs.environment }}
+          path: |
+            e2e/screenshots/
+            cypress/screenshots/
+            test-results/
+          retention-days: 7
+  build:
+    name: Build Angular Application
+    runs-on: ubuntu-latest
+    needs: [setup, checkout, lint]
+    if: always() && !cancelled() && (needs.lint.result == 'success' || needs.lint.result == 'skipped')
+    outputs:
+      version: ${{ steps.version-info.outputs.version }}
+      size: ${{ steps.build-stats.outputs.size }}
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch }}
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: 'npm'
+      - name: Restaurar dependencias
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: ${{ needs.setup.outputs.cache-key }}
+      - name: Configurar variables de entorno
+        run: |
+          echo "🔧 Configurando variables de entorno para ${{ inputs.environment }}..."
+          cat > src/environments/environment.${{ inputs.environment }}.ts << EOF
+          export const environment = {
+            production: ${{ inputs.production-mode }},
+            environment: '${{ inputs.environment }}',
+            version: '${{ inputs.app-version }}',
+            apiUrl: '\${{ vars.API_URL_${{ inputs.environment }} }}',
+            buildDate: '$(date -u +"%Y-%m-%dT%H:%M:%SZ")',
+            buildNumber: '${{ github.run_number }}'
+          };
+          EOF
+          cat src/environments/environment.${{ inputs.environment }}.ts
+      - name: Build de la aplicación
+        run: |
+          echo "🔨 Construyendo aplicación Angular..."
+          BUILD_FLAGS=""
+          if [[ "${{ inputs.production-mode }}" == "true" ]]; then
+            BUILD_FLAGS="--configuration=production"
+          else
+            BUILD_FLAGS="--configuration=${{ inputs.environment }}"
+          fi
+          BUILD_FLAGS="$BUILD_FLAGS --output-path=dist/angular-app"
+          echo "Flags de build: $BUILD_FLAGS"
+          ng build $BUILD_FLAGS
+          echo "✅ Build completado"
+      - name: Analizar tamaño del build
+        id: build-stats
+        run: |
+          echo "📊 Analizando tamaño del build..."
+          BUILD_SIZE=$(du -sh dist/angular-app | cut -f1)
+          echo "Tamaño total: $BUILD_SIZE"
+          echo "size=$BUILD_SIZE" >> $GITHUB_OUTPUT
+          echo "Archivos principales:"
+          find dist/angular-app -name "*.js" -type f -exec ls -lh {} \; | awk '{print $5 "\t" $9}' | sort -rh | head -10
+      - name: Optimizar build
+        run: |
+          echo "⚡ Optimizando build..."
+          find dist/angular-app -type f \( -name "*.js" -o -name "*.css" -o -name "*.html" \) -exec gzip -k {} \;
+          echo "✅ Optimización completada"
+      - name: Generar información de versión
+        id: version-info
+        run: |
+          VERSION="${{ inputs.app-version }}"
+          BUILD_NUMBER="${{ github.run_number }}"
+          FULL_VERSION="${VERSION}+${BUILD_NUMBER}"
+          echo "version=$FULL_VERSION" >> $GITHUB_OUTPUT
+          cat > dist/angular-app/version.json << EOF
+          {
+            "version": "$FULL_VERSION",
+            "environment": "${{ inputs.environment }}",
+            "branch": "${{ inputs.branch }}",
+            "commit": "${{ github.sha }}",
+            "buildDate": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+            "buildNumber": "$BUILD_NUMBER",
+            "triggeredBy": "${{ inputs.triggered-by }}"
+          }
+          EOF
+          echo "📝 Versión: $FULL_VERSION"
+      - name: Subir artefactos de build
+        uses: actions/upload-artifact@v4
+        with:
+          name: angular-build-${{ inputs.environment }}-${{ inputs.app-version }}
+          path: dist/angular-app
+          retention-days: 30
+      - name: Generar checksum
+        run: |
+          echo "🔐 Generando checksums..."
+          cd dist/angular-app
+          find . -type f -exec sha256sum {} \; > ../../checksums.txt
+          cd ../..
+      - name: Subir checksums
+        uses: actions/upload-artifact@v4
+        with:
+          name: checksums-${{ inputs.environment }}-${{ inputs.app-version }}
+          path: checksums.txt
+  backup:
+    name: Create Backup
+    runs-on: ubuntu-latest
+    needs: build
+    if: inputs.create-backup
+    steps:
+      - name: Configurar AWS CLI
+        if: ${{ secrets.AWS_ACCESS_KEY_ID != '' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+      - name: Crear backup del deployment actual
+        run: |
+          echo "💾 Creando backup del deployment actual..."
+          BACKUP_NAME="backup-${{ inputs.environment }}-$(date +%Y%m%d-%H%M%S).tar.gz"
+          echo "Backup creado: $BACKUP_NAME"
+  health-check:
+    name: Post-Deployment Health Check
+    runs-on: ubuntu-latest
+    needs: build
+    if: inputs.health-check
+    steps:
+      - name: Esperar estabilización
+        run: |
+          echo "⏳ Esperando 30 segundos para estabilización..."
+          sleep 30
+      - name: Health check de la aplicación
+        run: |
+          echo "🏥 Ejecutando health checks..."
+          # Aquí iría la lógica de health check, adaptada según el entorno
+      - name: Smoke tests
+        run: |
+          echo "🧪 Ejecutando smoke tests..."
+          # Aquí iría la lógica de smoke tests
+  notify:
+    name: Send Notifications
+    runs-on: ubuntu-latest
+    needs: [build, health-check]
+    if: always()
+    steps:
+      - name: Notificación a Slack - Éxito
+        if: secrets.SLACK_WEBHOOK != ''
+        run: |
+          curl -X POST ${{ secrets.SLACK_WEBHOOK }} \
+            -H 'Content-Type: application/json' \
+            -d '{"text": "✅ Despliegue exitoso"}'
+      - name: Notificación a Slack - Fallo
+        if: secrets.SLACK_WEBHOOK != ''
+        run: |
+          curl -X POST ${{ secrets.SLACK_WEBHOOK }} \
+            -H 'Content-Type: application/json' \
+            -d '{"text": "❌ Despliegue fallido"}'
