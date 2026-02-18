@@ -42,10 +42,10 @@ jobs:
             core.info(`Context: ${JSON.stringify(context, null, 2)}`);
             core.info(`typeof github: ${typeof github}`);
             core.info(`github keys: ${Object.keys(github)}`);
-            core.info(`typeof github.issues: ${typeof github.issues}`);
+            core.info(`typeof github.rest.issues: ${typeof github.rest.issues}`);
             let assignRes, commentRes;
             try {
-              assignRes = await github.issues.addAssignees({
+              assignRes = await github.rest.issues.addAssignees({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issueId,
@@ -57,7 +57,7 @@ jobs:
               core.error(JSON.stringify(e, null, 2));
             }
             try {
-              commentRes = await github.issues.createComment({
+              commentRes = await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issueId,
@@ -191,14 +191,14 @@ jobs:
             const message = failed
               ? 'El workflow ha fallado en uno o más jobs.'
               : 'El workflow se completó exitosamente.';
-            await github.issues.createComment({
+            await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: issueId,
               body: message
             });
             if (!failed) {
-              await github.issues.update({
+              await github.rest.issues.update({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issueId,
