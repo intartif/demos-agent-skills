@@ -160,7 +160,7 @@ jobs:
           github_token: ${{ secrets.GH_TOKEN }}
           publish_dir: ./build
 
-  update-issue:
+  close-issue:
     runs-on: ubuntu-latest
     needs:
       - deploy
@@ -183,7 +183,7 @@ jobs:
             ];
             let failed = false;
             for (const job of jobs) {
-              if (process.env[`JOB_${job.toUpperCase()}_RESULT`] === 'failure') {
+              if (needs[job] && needs[job].result !== 'success') {
                 failed = true;
                 break;
               }
