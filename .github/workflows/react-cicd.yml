@@ -42,20 +42,22 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const issueId = parseInt('${{ inputs.issue-id }}', 10);
-            const creator = '${{ inputs.creator }}';
-            await github.issues.addAssignees({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: issueId,
-              assignees: [creator]
-            });
-            await github.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: issueId,
-              body: `Atención iniciada por @${creator}.`
-            });
+            async ({ github, context }) => {
+              const issueId = parseInt('${{ inputs.issue-id }}', 10);
+              const creator = '${{ inputs.creator }}';
+              await github.issues.addAssignees({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueId,
+                assignees: [creator]
+              });
+              await github.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueId,
+                body: `Atención iniciada por @${creator}.`
+              });
+            }
 
   format:
     runs-on: ubuntu-latest
@@ -165,31 +167,33 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const issueId = parseInt('${{ inputs.issue-id }}', 10);
-            const jobs = [
-              'format', 'type-check', 'lint', 'snyk-scan', 'unit-test', 'build', 'deploy'
-            ];
-            let failed = false;
-            for (const job of jobs) {
-              if (process.env[`JOB_${job.toUpperCase()}_RESULT`] === 'failure') {
-                failed = true;
-                break;
+            async ({ github, context }) => {
+              const issueId = parseInt('${{ inputs.issue-id }}', 10);
+              const jobs = [
+                'format', 'type-check', 'lint', 'snyk-scan', 'unit-test', 'build', 'deploy'
+              ];
+              let failed = false;
+              for (const job of jobs) {
+                if (process.env[`JOB_${job.toUpperCase()}_RESULT`] === 'failure') {
+                  failed = true;
+                  break;
+                }
               }
-            }
-            const message = failed
-              ? 'El workflow ha fallado en uno o más jobs.'
-              : 'El workflow se completó exitosamente.';
-            await github.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: issueId,
-              body: message
-            });
-            if (!failed) {
-              await github.issues.update({
+              const message = failed
+                ? 'El workflow ha fallado en uno o más jobs.'
+                : 'El workflow se completó exitosamente.';
+              await github.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issueId,
-                state: 'closed'
+                body: message
               });
+              if (!failed) {
+                await github.issues.update({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueId,
+                  state: 'closed'
+                });
+              }
             }
