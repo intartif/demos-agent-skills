@@ -1,0 +1,600 @@
+name: Angular CI/CD Pipeline
+
+on:
+  workflow_call:
+    inputs:
+      # Configuración básica
+      branch:
+        description: 'Branch del código a desplegar'
+        required: true
+        type: string
+      app-version:
+        description: 'Versión de la aplicación (semver)'
+        required: true
+        type: string
+      environment:
+        description: 'Entorno de destino (dev, qa, staging, production)'
+        required: true
+        type: string
+      node-version:
+        description: 'Versión de Node.js'
+        required: false
+        type: string
+        default: '18'
+      angular-version:
+        description: 'Versión de Angular CLI'
+        required: false
+        type: string
+        default: '18'
+      
+      # Opciones de build
+      run-unit-tests:
+        description: 'Ejecutar tests unitarios'
+        required: false
+        type: boolean
+        default: true
+      run-e2e-tests:
+        description: 'Ejecutar tests e2e'
+        required: false
+        type: boolean
+        default: false
+      run-lint:
+        description: 'Ejecutar análisis de código (lint)'
+        required: false
+        type: boolean
+        default: true
+      generate-coverage:
+        description: 'Generar reporte de coverage'
+        required: false
+        type: boolean
+        default: false
+      production-mode:
+        description: 'Build en modo producción'
+        required: false
+        type: boolean
+        default: true
+      
+      # Opciones de deployment
+      clear-cache:
+        description: 'Limpiar caché antes del build'
+        required: false
+        type: boolean
+        default: false
+      create-backup:
+        description: 'Crear backup antes del despliegue'
+        required: false
+        type: boolean
+        default: false
+      health-check:
+        description: 'Ejecutar health check post-deployment'
+        required: false
+        type: boolean
+        default: true
+      
+      # Metadata
+      issue-number:
+        description: 'Número del issue que disparó el workflow'
+        required: false
+        type: number
+        default: '0'
+      triggered-by:
+        description: 'Usuario que disparó el deployment'
+        required: false
+        type: string
+        default: 'automation'
+    
+    secrets:
+      NPM_TOKEN:
+        description: 'Token de NPM para paquetes privados'
+        required: false
+      DEPLOY_TOKEN:
+        description: 'Token para el despliegue'
+        required: true
+      AWS_ACCESS_KEY_ID:
+        description: 'AWS Access Key ID'
+        required: false
+      AWS_SECRET_ACCESS_KEY:
+        description: 'AWS Secret Access Key'
+        required: false
+      SLACK_WEBHOOK:
+        description: 'Webhook de Slack para notificaciones'
+        required: false
+      SONAR_TOKEN:
+        description: 'Token de SonarQube'
+        required: false
+    
+    outputs:
+      build-version:
+        description: 'Versión del build generado'
+        value: ${{ jobs.build.outputs.version }}
+      deployment-url:
+        description: 'URL del deployment'
+        value: ${{ jobs.deploy.outputs.url }}
+      build-size:
+        description: 'Tamaño del build en MB'
+        value: ${{ jobs.build.outputs.size }}
+      test-results:
+        description: 'Resultado de los tests'
+        value: ${{ jobs.test.outputs.results }}
+
+jobs:
+  # ============================================
+  # JOB 1: SETUP Y VALIDACIÓN
+  # ============================================
+  setup:
+    name: Setup and Validation
+    runs-on: ubuntu-latest
+    outputs:
+      cache-key: ${{ steps.cache-keys.outputs.node }}
+      
+    steps:
+      - name: Validate inputs
+        run: |
+          echo "🔍 Validando inputs..."
+          
+          # Validar entorno
+          if [[ ! "${{ inputs.environment }}" =~ ^(dev|qa|staging|production)$ ]]; then
+            echo "❌ Error: Entorno inválido '${{ inputs.environment }}'"
+            exit 1
+          fi
+          
+          # Validar versión semántica
+          if [[ ! "${{ inputs.app-version }}" =~ ^[0-9]+\.[0-9]+\.[0-9]+.*$ ]]; then
+            echo "❌ Error: Versión inválida '${{ inputs.app-version }}'"
+            exit 1
+          fi
+          
+          echo "✅ Validación exitosa"
+          echo "📦 Versión: ${{ inputs.app-version }}"
+          echo "🌍 Entorno: ${{ inputs.environment }}"
+          echo "🌿 Branch: ${{ inputs.branch }}"
+          echo "👤 Disparado por: ${{ inputs.triggered-by }}"
+
+      - name: Generate cache keys
+        id: cache-keys
+        run: |
+          echo "node=node-${{ runner.os }}-${{ inputs.node-version }}-${{ hashFiles('**/package-lock.json') }}" >> $GITHUB_OUTPUT
+
+  # ============================================
+  # JOB 2: CHECKOUT Y SETUP
+  # ============================================
+  checkout:
+    name: Checkout and Setup
+    runs-on: ubuntu-latest
+    needs: setup
+    
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v24
+        with:
+          ref: ${{ inputs.branch }}
+          fetch-depth: 0  # Full history para análisis
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: 'npm'
+
+      - name: Limpiar caché npm
+        if: inputs.clear-cache
+        run: |
+          echo "🧹 Limpiando caché de npm..."
+          npm cache clean --force
+
+      - name: Configurar NPM Token
+        if: ${{ secrets.NPM_TOKEN != '' }}
+        run: |
+          echo "🔐 Configurando NPM token..."
+          echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
+
+      - name: Instalar dependencias
+        run: |
+          echo "📦 Instalando dependencias..."
+          npm ci --prefer-offline --no-audit
+          
+      - name: Verificar instalación de Angular CLI
+        run: |
+          echo "🅰️ Verificando Angular CLI..."
+          if ! command -v ng &> /dev/null; then
+            echo "Instalando Angular CLI v${{ inputs.angular-version }}..."
+            npm install -g @angular/cli@${{ inputs.angular-version }}
+          fi
+          ng version
+
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules
+            ~/.npm
+          key: ${{ needs.setup.outputs.cache-key }}
+          restore-keys: |
+            node-${{ runner.os }}-${{ inputs.node-version }}-
+
+
+
+  # ============================================
+  # JOB 3: BUILD DE LA APLICACIÓN
+  # ============================================
+  build:
+    name: Build Angular Application
+    runs-on: ubuntu-latest
+    needs: [setup, checkout, lint]
+    if: always() && !cancelled() && (needs.lint.result == 'success' || needs.lint.result == 'skipped')
+    outputs:
+      version: ${{ steps.version-info.outputs.version }}
+      size: ${{ steps.build-stats.outputs.size }}
+    
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: 'npm'
+
+      - name: Restaurar dependencias
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: ${{ needs.setup.outputs.cache-key }}
+
+      - name: Configurar variables de entorno
+        run: |
+          echo "🔧 Configurando variables de entorno para ${{ inputs.environment }}..."
+          
+          # Crear archivo de configuración específico del entorno
+          cat > src/environments/environment.${{ inputs.environment }}.ts << EOF
+          export const environment = {
+            production: ${{ inputs.production-mode }},
+            environment: '${{ inputs.environment }}',
+            version: '${{ inputs.app-version }}',
+            apiUrl: '\${{ vars.API_URL_${{ inputs.environment }} }}',
+            buildDate: '$(date -u +"%Y-%m-%dT%H:%M:%SZ")',
+            buildNumber: '${{ github.run_number }}'
+          };
+          EOF
+          
+          cat src/environments/environment.${{ inputs.environment }}.ts
+
+      - name: Build de la aplicación
+        run: |
+          echo "🔨 Construyendo aplicación Angular..."
+          
+          BUILD_FLAGS=""
+          if [[ "${{ inputs.production-mode }}" == "true" ]]; then
+            BUILD_FLAGS="--configuration=production"
+          else
+            BUILD_FLAGS="--configuration=${{ inputs.environment }}"
+          fi
+          
+          BUILD_FLAGS="$BUILD_FLAGS --output-path=dist/angular-app"
+          
+          echo "Flags de build: $BUILD_FLAGS"
+          ng build $BUILD_FLAGS
+          
+          echo "✅ Build completado"
+
+      - name: Analizar tamaño del build
+        id: build-stats
+        run: |
+          echo "📊 Analizando tamaño del build..."
+          
+          BUILD_SIZE=$(du -sh dist/angular-app | cut -f1)
+          echo "Tamaño total: $BUILD_SIZE"
+          echo "size=$BUILD_SIZE" >> $GITHUB_OUTPUT
+          
+          # Listar archivos principales
+          echo "Archivos principales:"
+          find dist/angular-app -name "*.js" -type f -exec ls -lh {} \; | awk '{print $5 "\t" $9}' | sort -rh | head -10
+
+      - name: Optimizar build
+        run: |
+          echo "⚡ Optimizando build..."
+          
+          # Comprimir archivos estáticos
+          find dist/angular-app -type f \( -name "*.js" -o -name "*.css" -o -name "*.html" \) -exec gzip -k {} \;
+          
+          echo "✅ Optimización completada"
+
+      - name: Generar información de versión
+        id: version-info
+        run: |
+          VERSION="${{ inputs.app-version }}"
+          BUILD_NUMBER="${{ github.run_number }}"
+          FULL_VERSION="${VERSION}+${BUILD_NUMBER}"
+          
+          echo "version=$FULL_VERSION" >> $GITHUB_OUTPUT
+          
+          # Crear archivo de versión
+          cat > dist/angular-app/version.json << EOF
+          {
+            "version": "$FULL_VERSION",
+            "environment": "${{ inputs.environment }}",
+            "branch": "${{ inputs.branch }}",
+            "commit": "${{ github.sha }}",
+            "buildDate": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+            "buildNumber": "$BUILD_NUMBER",
+            "triggeredBy": "${{ inputs.triggered-by }}"
+          }
+          EOF
+          
+          echo "📝 Versión: $FULL_VERSION"
+
+      - name: Subir artefactos de build
+        uses: actions/upload-artifact@v4
+        with:
+          name: angular-build-${{ inputs.environment }}-${{ inputs.app-version }}
+          path: dist/angular-app
+          retention-days: 30
+
+      - name: Generar checksum
+        run: |
+          echo "🔐 Generando checksums..."
+          cd dist/angular-app
+          find . -type f -exec sha256sum {} \; > ../../checksums.txt
+          cd ../..
+
+      - name: Subir checksums
+        uses: actions/upload-artifact@v4
+        with:
+          name: checksums-${{ inputs.environment }}-${{ inputs.app-version }}
+          path: checksums.txt
+
+  # ============================================
+  # JOB 4: BACKUP (Opcional)
+  # ============================================
+  backup:
+    name: Create Backup
+    runs-on: ubuntu-latest
+    needs: build
+    if: inputs.create-backup
+    
+    steps:
+      - name: Configurar AWS CLI
+        if: ${{ secrets.AWS_ACCESS_KEY_ID != '' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Crear backup del deployment actual
+        run: |
+          echo "💾 Creando backup del deployment actual..."
+          BACKUP_NAME="backup-${{ inputs.environment }}-$(date +%Y%m%d-%H%M%S).tar.gz"
+          
+          # Aquí irían los comandos específicos para tu infraestructura
+          echo "Backup creado: $BACKUP_NAME"
+          
+          # Ejemplo con S3
+          # aws s3 sync s3://my-bucket/${{ inputs.environment }}/ ./current-deployment/
+          # tar -czf $BACKUP_NAME ./current-deployment/
+          # aws s3 cp $BACKUP_NAME s3://my-backups/${{ inputs.environment }}/
+
+  # ============================================
+  # JOB 5: DEPLOYMENT
+  # ============================================
+  deploy:
+    name: Deploy to ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    needs: [build, test]
+    if: always() && !cancelled() && needs.build.result == 'success' && (needs.test.result == 'success' || needs.test.result == 'skipped')
+    environment:
+      name: ${{ inputs.environment }}
+      url: ${{ steps.deploy-step.outputs.url }}
+    outputs:
+      url: ${{ steps.deploy-step.outputs.url }}
+    
+    steps:
+      - name: Descargar artefactos de build
+        uses: actions/download-artifact@v4
+        with:
+          name: angular-build-${{ inputs.environment }}-${{ inputs.app-version }}
+          path: dist/angular-app
+
+      - name: Configurar AWS CLI
+        if: ${{ secrets.AWS_ACCESS_KEY_ID != '' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Desplegar a S3 y CloudFront
+        id: deploy-step
+        run: |
+          echo "🚀 Iniciando despliegue a ${{ inputs.environment }}..."
+          
+          # Variables según el entorno
+          case "${{ inputs.environment }}" in
+            dev)
+              BUCKET="my-app-dev"
+              DISTRIBUTION_ID="E1234567890ABC"
+              URL="https://dev.myapp.com"
+              ;;
+            qa)
+              BUCKET="my-app-qa"
+              DISTRIBUTION_ID="E1234567890DEF"
+              URL="https://qa.myapp.com"
+              ;;
+            staging)
+              BUCKET="my-app-staging"
+              DISTRIBUTION_ID="E1234567890GHI"
+              URL="https://staging.myapp.com"
+              ;;
+            production)
+              BUCKET="my-app-prod"
+              DISTRIBUTION_ID="E1234567890JKL"
+              URL="https://myapp.com"
+              ;;
+          esac
+          
+          echo "Desplegando a bucket: $BUCKET"
+          
+          # Sincronizar con S3
+          # aws s3 sync dist/angular-app/ s3://$BUCKET/ --delete --cache-control "max-age=31536000"
+          
+          # Invalidar caché de CloudFront
+          # aws cloudfront create-invalidation --distribution-id $DISTRIBUTION_ID --paths "/*"
+          
+          echo "url=$URL" >> $GITHUB_OUTPUT
+          echo "✅ Despliegue completado en: $URL"
+
+      - name: Verificar archivos desplegados
+        run: |
+          echo "📋 Archivos desplegados:"
+          ls -lah dist/angular-app/
+          
+          echo "📦 Estructura de directorios:"
+          tree -L 2 dist/angular-app/ || find dist/angular-app/ -type d -maxdepth 2
+
+  # ============================================
+  # JOB 6: HEALTH CHECK
+  # ============================================
+  health-check:
+    name: Post-Deployment Health Check
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: inputs.health-check
+    
+    steps:
+      - name: Esperar estabilización
+        run: |
+          echo "⏳ Esperando 30 segundos para estabilización..."
+          sleep 30
+
+      - name: Health check de la aplicación
+        run: |
+          echo "🏥 Ejecutando health checks..."
+          
+          URL="${{ needs.deploy.outputs.url }}"
+          
+          # Check 1: HTTP Status
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" $URL)
+          echo "HTTP Status: $HTTP_STATUS"
+          
+          if [ "$HTTP_STATUS" -ne 200 ]; then
+            echo "❌ Error: La aplicación no responde correctamente (HTTP $HTTP_STATUS)"
+            exit 1
+          fi
+          
+          # Check 2: Verificar version.json
+          VERSION_CHECK=$(curl -s $URL/version.json | jq -r '.version')
+          echo "Versión desplegada: $VERSION_CHECK"
+          
+          if [ "$VERSION_CHECK" != "${{ needs.build.outputs.version }}" ]; then
+            echo "⚠️ Advertencia: La versión desplegada no coincide"
+          fi
+          
+          # Check 3: Performance básico
+          LOAD_TIME=$(curl -o /dev/null -s -w '%{time_total}' $URL)
+          echo "Tiempo de carga: ${LOAD_TIME}s"
+          
+          if (( $(echo "$LOAD_TIME > 5" | bc -l) )); then
+            echo "⚠️ Advertencia: Tiempo de carga superior a 5 segundos"
+          fi
+          
+          echo "✅ Health checks completados exitosamente"
+
+      - name: Smoke tests
+        run: |
+          echo "🧪 Ejecutando smoke tests..."
+          
+          URL="${{ needs.deploy.outputs.url }}"
+          
+          # Test rutas críticas
+          ROUTES=("/" "/login" "/dashboard")
+          
+          for route in "${ROUTES[@]}"; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$URL$route")
+            echo "$route: $STATUS"
+            
+            if [ "$STATUS" -ne 200 ] && [ "$STATUS" -ne 302 ]; then
+              echo "❌ Error en ruta: $route"
+              exit 1
+            fi
+          done
+          
+          echo "✅ Smoke tests completados"
+
+  # ============================================
+  # JOB 7: NOTIFICACIONES
+  # ============================================
+  notify:
+    name: Send Notifications
+    runs-on: ubuntu-latest
+    needs: [build, deploy, health-check]
+    if: always()
+    
+    steps:
+      - name: Notificación a Slack - Éxito
+        if: needs.deploy.result == 'success' && secrets.SLACK_WEBHOOK != ''
+        run: |
+          curl -X POST ${{ secrets.SLACK_WEBHOOK }} \
+            -H 'Content-Type: application/json' \
+            -d '{
+              "text": "✅ Despliegue exitoso",
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "🚀 Despliegue Exitoso"
+                  }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {"type": "mrkdwn", "text": "*Aplicación:*\nAngular App"},
+                    {"type": "mrkdwn", "text": "*Entorno:*\n${{ inputs.environment }}"},
+                    {"type": "mrkdwn", "text": "*Versión:*\n${{ needs.build.outputs.version }}"},
+                    {"type": "mrkdwn", "text": "*URL:*\n<${{ needs.deploy.outputs.url }}|Ver aplicación>"},
+                    {"type": "mrkdwn", "text": "*Branch:*\n${{ inputs.branch }}"},
+                    {"type": "mrkdwn", "text": "*Disparado por:*\n${{ inputs.triggered-by }}"}
+                  ]
+                }
+              ]
+            }'
+
+      - name: Notificación a Slack - Fallo
+        if: needs.deploy.result == 'failure' && secrets.SLACK_WEBHOOK != ''
+        run: |
+          curl -X POST ${{ secrets.SLACK_WEBHOOK }} \
+            -H 'Content-Type: application/json' \
+            -d '{
+              "text": "❌ Despliegue fallido",
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "❌ Despliegue Fallido"
+                  }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {"type": "mrkdwn", "text": "*Aplicación:*\nAngular App"},
+                    {"type": "mrkdwn", "text": "*Entorno:*\n${{ inputs.environment }}"},
+                    {"type": "mrkdwn", "text": "*Branch:*\n${{ inputs.branch }}"},
+                    {"type": "mrkdwn", "text": "*Error en:*\nRevisar workflow"}
+                  ]
+                },
+                {
+                  "type": "actions",
+                  "elements": [
+                    {
+                      "type": "button",
+                      "text": {"type": "plain_text", "text": "Ver Logs"},
+                      "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                    }
+                  ]
+                }
+              ]
+            }'

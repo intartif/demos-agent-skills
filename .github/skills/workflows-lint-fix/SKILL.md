@@ -34,7 +34,12 @@ metadata:
 
 ## Pasos
 1. **Antes de cualquier análisis, solicitar explícitamente al usuario qué workflows desea analizar** (todas o selección específica). No continuar hasta recibir respuesta.
-2. Ejecutar lint estructural sobre los workflows reusables.
+2. Ejecutar lint estructural sobre los workflows reusables usando:
+   - `yamllint` para validar sintaxis y estilo YAML.
+   - `act` para simular la ejecución de los workflows localmente.
+   - Si el workflow ejecuta scripts `.sh`, validar cada uno con:
+     - `shellcheck` para análisis estático de shell scripts.
+     - `bash -n` para validación de sintaxis bash.
 3. Validar claves requeridas y prohibidas:
   - Requeridas: `on`, `jobs` en la raíz.
   - Prohibidas: `inputs`, `runs` en la raíz.
@@ -55,6 +60,7 @@ Mostrar en el paso 7. Debo mostrar el reporte en Markdown con:
 ### Detalles de cada hallazgo (tipo, mensaje)
 #### Por cada hallazgo debo mostrar en un bloque de Codigo el antes/después (si aplica)
 
+
 ## Checklist de calidad
 - [ ] Detecta claves y estructura YAML inválida.
 - [ ] Valida claves requeridas: `on`, `jobs`.
@@ -64,6 +70,9 @@ Mostrar en el paso 7. Debo mostrar el reporte en Markdown con:
 - [ ] Corrige versiones irreales/no soportadas.
 - [ ] Reporta advertencias y errores en formato Actions.
 - [ ] Permite integración en pipelines CI/CD.
+- [ ] Ejecuta `yamllint` sobre los workflows.
+- [ ] Ejecuta `act` para simular workflows.
+- [ ] Ejecuta `shellcheck` y `bash -n` sobre scripts `.sh` referenciados.
 
 
 ## Ejemplos
