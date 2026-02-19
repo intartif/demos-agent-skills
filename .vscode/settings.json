@@ -1,0 +1,25 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "yamllint": true,
+        "/^bash \\.github/skills/workflows-lint-fix/scripts/validate-yml-structure\\.sh \\.github/workflows/\\*\\.yml$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^bash \\.github/skills/workflows-lint-fix/scripts/validate-actions-versions\\.sh \\.github/workflows/\\*\\.yml$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^bash \\.github/skills/workflows-lint-fix/scripts/fix-actions-versions\\.sh \\.github/workflows/\\*\\.yml$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^bash \\.github/skills/workflows-lint-fix/scripts/fix-actions-versions\\.sh$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "test": true,
+        "scripts/validate-yml-structure.sh": true,
+        "scripts/validate-actions-versions.sh": true,
+        "act": true
+    }
+}

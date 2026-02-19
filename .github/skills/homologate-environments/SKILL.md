@@ -17,27 +17,21 @@ metadata:
 
 ## Entradas
 - Workflow de desarrollo (ruta YAML, debe tener sufijo `-dev`).
-  - El workflow de desarrollo NUNCA debe modificarse durante la homologación.
 - Workflow de producción (ruta YAML, debe tener sufijo `-prod`).
-  - El workflow de producción es el ÚNICO que puede ser actualizado para homologarse al de desarrollo.
 
 ## Salidas
 - Reporte de diferencias no permitidas y sugerencias de fixes para homologar el workflow de producción.
-- Reporte en Markdown con:
-  - WORKFLOW ANALIZADO (ruta completa)
-  - Resumen de hallazgos (errores, advertencias, mejoras)
-  - Detalles de cada hallazgo (tipo, mensaje)
-  - Fragmento antes/después si aplica
 
 ## Pasos
-1. **Antes de cualquier análisis, solicitar explícitamente al usuario qué workflows de desarrollo (sufijo `-dev`) desea analizar** (todas o selección específica). No continuar hasta recibir respuesta.
-2. Buscar y validar que el workflow indicado en el paso anterior tenga su workflow para producción con sufijo `-prod`. Si no existe, reportar error y sugerir crear el workflow de producción basado en el de desarrollo.
-3. Comparar ambos workflows:
+1. Busca los workflows de desarrollo con sufijo `-dev` en el repositorio.
+2. **Antes de cualquier análisis, revisión o corrección, se debe solicitar explícitamente al usuario qué workflows de desarrollo (sufijo `-dev`) desea analizar** (todas o selección específica). No continuar hasta recibir respuesta.
+3. Buscar y validar que el workflow indicado en el paso anterior tenga su workflow para producción con sufijo `-prod`. Si no existe, reportar error y sugerir crear el workflow de producción basado en el de desarrollo.
+4. Comparar ambos workflows:
   - Jobs prohibidos en prod: lint, test, snyk, sonar, fortify, prettier, coverage, scan, semgrep, format, type-check, snyk-scan, unit-test o jobs propios de escaneo o pruebas del flujo de CI.
   - El resto de jobs, steps y configuración deben ser idénticos.
   - El workflow de desarrollo (`-dev`) NUNCA debe modificarse. Cualquier ajuste o fix se debe aplicar únicamente al workflow de producción (`-prod`).
-4. Mostrar obligatoriamente un reporte y para ello debo usar el formato de salida definido en la sección "Formato de salida (OBLIGATORIO)". Debo reportar diferencias no permitidas y sugerir fixes. 
-5. Solicitar confirmación antes de aplicar fixes automáticos (si aplica), dejando claro que solo el workflow de producción será modificado.
+5. Mostrar obligatoriamente un reporte y para ello debo usar el formato de salida definido en la sección "Formato de salida (OBLIGATORIO)". Debo reportar diferencias no permitidas y sugerir fixes. 
+6. Solicitar confirmación antes de aplicar fixes automáticos (si aplica), dejando claro que solo el workflow de producción será modificado.
 
 
 ## **Formato de salida (OBLIGATORIO)**
