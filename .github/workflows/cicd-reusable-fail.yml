@@ -18,11 +18,11 @@ on:
       sonar_project_key:
         type: string
         required: false
-        default: ""
+        defaul: ""
       snyk_fail_on:
         type: string
         required: false
-        default: "high"
+        default: true
     secrets:
       SONAR_TOKEN:
         required: false

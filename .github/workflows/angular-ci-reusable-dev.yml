@@ -137,8 +137,8 @@ jobs:
           echo "node=node-${{ runner.os }}-${{ inputs.node-version }}-${{ hashFiles('**/package-lock.json') }}" >> $GITHUB_OUTPUT
   checkout:
     name: Checkout and Setup
-    runs-on: ubuntu-latest
-    needs: setup
+    runs-on: ubuntu
+    needs: setup,
     steps:
       - name: Checkout código
         uses: actions/checkout@v24

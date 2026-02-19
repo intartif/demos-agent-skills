@@ -1,6 +1,6 @@
 ---
 name: workflows-lint-fix
-description: Revisa, lintea y corrige workflows reusables de GitHub Actions: formato, claves válidas, y validación de versiones de acciones (e.g., detectar 'uses: actions/checkout@v15' y sugerir @v6 o pin a SHA). Valida claves requeridas 'on' y 'jobs'.
+description: Revisa la sintaxis, corrige los workflows reusables de GitHub Actions: formato, claves válidas, y validación de versiones de acciones (e.g., detectar 'uses: actions/checkout@v15' y sugerir @v6 o pin a SHA). Valida claves requeridas 'on' y 'jobs'.
 license: Apache-2.0
 compatibility: [claude, vscode-copilot, cursor]
 metadata:
@@ -49,7 +49,7 @@ metadata:
   - `scripts/validate-actions-versions.sh` (requiere `jq`).
 6. Corregir versiones irreales/no soportadas con:
   - `scripts/fix-actions-versions.sh`.
-7. Mostrar obligatoriamente un reporte y para ello debo usar el formato de salida definido en la sección "Formato de salida (OBLIGATORIO)".
+7. Terminado los analisis y correcciones, debo mostrar obligatoriamente un reporte y para ello debo usar el formato de salida definido en la sección "Formato de salida (OBLIGATORIO)".
 8. Al finalizar el reporte, solicitar al usuario si desea aplicar los cambios encontrados.
 9. Si el usuario acepta, aplicar los fixes automáticamente.
 

@@ -2,7 +2,7 @@ name: CI
 
 on:
   workflow_call:
-    inputs:
+    input:
       example-input:
         description: 'An example input for the reusable workflow'
         required: false
