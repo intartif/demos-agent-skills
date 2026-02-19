@@ -1,0 +1,56 @@
+# macOS system files
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Icon files
+Icon?
+
+# macOS resource forks
+._*
+
+# Spotlight files
+.Spotlight-V100
+
+# Finder files
+.Trashes
+
+# macOS disk image files
+*.dmg
+
+# macOS specific folders
+.AppleDesktop
+
+# macOS network files
+.Network
+
+# macOS temporary files
+.TemporaryItems
+
+# macOS volume files
+.VolumeIcon.icns
+
+# macOS backup files
+.Backup
+
+# macOS cache files
+.cache
+
+# macOS logs
+*.log
+
+# macOS files in folders
+*/.DS_Store
+*/.AppleDouble
+*/.LSOverride
+*/Icon?
+*/._*
+*/.Spotlight-V100
+*/.Trashes
+*/.AppleDesktop
+*/.Network
+*/.TemporaryItems
+*/.VolumeIcon.icns
+*/.Backup
+*/.cache
+*/.log
