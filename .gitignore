@@ -54,3 +54,4 @@ Icon?
 */.Backup
 */.cache
 */.log
+.DS_Store
