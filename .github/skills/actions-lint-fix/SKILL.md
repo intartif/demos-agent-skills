@@ -32,28 +32,36 @@ metadata:
 - Mensajes de warning/error en formato GitHub Actions (`::warning`, `::error`).
 
 ## Pasos
-1. **Antes de cualquier análisis, solicitar explícitamente al usuario qué actions desea analizar** (todas o selección específica). No continuar hasta recibir respuesta.
-2. Ejecutar lint estructural sobre las actions reusables seleccionadas usando:
+1. **Chequeo previo de dependencias**: Antes de cualquier análisis, validar que las siguientes herramientas estén instaladas y disponibles en el entorno:
+  - `yamllint`
+  - `act`
+  - `shellcheck`
+  - `jq`
+  Si alguna no está instalada o no es ejecutable, mostrar al usuario el comando recomendado para instalarla (por ejemplo: `pip install yamllint`, `brew install act`, `brew install shellcheck`, `brew install jq`).
+  Ofrecer la opción de instalar automáticamente la dependencia si el usuario lo autoriza.
+  Si el usuario acepta, ejecutar el comando de instalación y continuar; si no, detener el análisis y mostrar el mensaje correspondiente.
+2. **Antes de cualquier análisis, solicitar explícitamente al usuario qué actions desea analizar** (todas o selección específica). No continuar hasta recibir respuesta.
+3. Ejecutar lint estructural sobre las actions reusables seleccionadas usando:
     - `yamllint` para validar sintaxis y estilo YAML.
     - `act` para simular la ejecución de las actions localmente.
     - Si la action ejecuta scripts `.sh`, validar cada uno con:
        - `shellcheck` para análisis estático de shell scripts.
        - `bash -n` para validación de sintaxis bash.
-3. Validar claves requeridas y prohibidas:
+4. Validar claves requeridas y prohibidas:
    - Requeridas: `name`, `description`, `inputs`, `runs` en la raíz.
    - Prohibidas: `on`, `jobs` en la raíz.
-4. Validar estructura de yml (`uses:`) usando:
+5. Validar estructura de yml (`uses:`) usando:
    - `scripts/validate-yml-structure.sh` (requiere `jq`).
-5. Validar versiones de acciones (`uses:`) usando:
-   - `scripts/validate-actions-versions.sh` (requiere `jq`).
-6. Corregir versiones irreales/no soportadas con:
+6. Validar versiones de acciones (`uses:`) usando:
+   - `scripts/fix-actions-versions.sh` (requiere `jq`).
+7. Corregir versiones irreales/no soportadas con:
    - `scripts/fix-actions-versions.sh`.
-7. Mostrar obligatoriamente un reporte y para ello debo usar el formato de salida definido en la sección "Formato de salida (OBLIGATORIO)".
-8. Al finalizar el reporte, solicitar al usuario si desea aplicar los cambios encontrados.
-9. Si el usuario acepta, aplicar los fixes automáticamente.
+8. Mostrar obligatoriamente un reporte y para ello debo usar el formato de salida definido en la sección "Formato de salida (OBLIGATORIO)".
+9. Al finalizar el reporte, solicitar al usuario si desea aplicar los cambios encontrados.
+10. Si el usuario acepta, aplicar los fixes automáticamente.
 
 ## **Formato de salida (OBLIGATORIO)**
-Mostrar en el paso 7. Debo mostrar el reporte en Markdown con:
+Debo mostrar el reporte en Markdown con:
 ## ACTION ANALIZADO (mostrar la ruta completa del archivo)
 ### Datos del action reusable (usar la carpeta del action. Por ejemplo: si la ruta es: actions/mi-action/action.yml el nombre a mostrar es mi-action)
 ### Resumen de hallazgos (número de errores, advertencias, mejoras)
@@ -102,7 +110,6 @@ Fragmento a modificar en actions/mi-action/action.yml:
 ¿Deseas aplicar este cambio?
 
 ## Referencias
-- scripts/validate-actions-versions.sh
 - scripts/fix-actions-versions.sh
 - config/actions-versions.json
 - [GitHub Actions: Versioning Best Practices](https://github.blog/ai-and-ml/github-copilot/how-to-maximize-github-copilots-agentic-capabilities/)
