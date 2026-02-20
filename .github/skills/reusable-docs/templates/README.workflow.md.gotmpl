@@ -1,13 +1,24 @@
-# {{ .name }} — Reusable Workflow
 
-## Descripción
-{{ .description | default "Reusable workflow para {{ .purpose }}. Se invoca con `workflow_call` y expone entradas/secretos/outputs para ser consumidos desde otros repos o workflows." }}
+<div style="display: flex; justify-content: space-between; align-items: flex-start;">
+  <hr style="width: 60%; margin-top: 32px; margin-bottom: 0; border: 1px solid #ccc;">
+  <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/09/NTT-Data-Logo.svg/960px-NTT-Data-Logo.svg.png" alt="NTT Data Logo" width="110" align="right" style="margin-left: 16px; margin-bottom: 0;"/>
+</div>
 
-> Este workflow está diseñado para ser llamado con **`on: workflow_call`**. Usa **inputs** y **secrets** definidos en el bloque `on.workflow_call` y puede exponer **outputs** a su caller. [1](https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows)
+<p align="right"><sub>Generado por NTT DATA</sub></p>
+
+# 🚀 {{ .name }} — Reusable Workflow
 
 ---
 
-## Inputs
+## 📝 Descripción
+{{ .description | default "Reusable workflow para {{ .purpose }}. Se invoca con `workflow_call` y expone entradas/secretos/outputs para ser consumidos desde otros repos o workflows." }}
+
+> Este workflow está diseñado para ser llamado con **`on: workflow_call`**. Usa **inputs** y **secrets** definidos en el bloque `on.workflow_call` y puede exponer **outputs** a su caller.  
+> https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows
+
+---
+
+## 🧩 Inputs
 {{ if .inputs }}
 | Nombre | Tipo | Requerido | Default | Descripción |
 |---|---|:---:|---|---|
@@ -17,7 +28,9 @@
 _No define inputs._
 {{ end }}
 
-## Secrets
+---
+
+## 🔐 Secrets
 {{ if .secrets }}
 | Nombre | Requerido | Descripción |
 |---|:---:|---|
@@ -27,7 +40,9 @@ _No define inputs._
 _No define secrets._
 {{ end }}
 
-## Outputs
+---
+
+## 📤 Outputs
 {{ if .outputs }}
 | Nombre | Descripción |
 |---|---|
@@ -39,18 +54,22 @@ _No expone outputs de workflow._
 
 ---
 
-## Jobs
+## 🛠️ Jobs
 {{ range .jobs }}
 ### `{{ .id }}` — {{ .name | default .id }}
+
 - **Runner:** `{{ .runsOn }}`
 - **Needs:** {{ .needs | listOrDash }}
 - **Permissions:** {{ .permissions | inlinePermsOrDash }}
 
 #### Steps
 {{ if .steps }}
-{{ range .steps }}- **{{ .name | default (printf "%s/%s" .uses .shell) }}**  
-  {{ if .if }}  _if:_ `{{ .if }}`  
-  {{ end }}  {{ if .uses }}_uses:_ `{{ .uses }}`{{ end }}{{ if .run }}_run:_ `{{ .run | firstLine }}`{{ end }}
+{{ range .steps }}
+- **{{ .name | default (printf "%s/%s" .uses .shell) }}**  
+  {{ if .if }}_if:_ `{{ .if }}`  
+  {{ end }}
+  {{ if .uses }}_uses:_ `{{ .uses }}`{{ end }}
+  {{ if .run }}_run:_ `{{ .run | firstLine }}`{{ end }}
 {{ end }}
 {{ else }}
 _(sin steps definidos)_
@@ -59,13 +78,19 @@ _(sin steps definidos)_
 ---
 {{ end }}
 
-## Summary
+## 📋 Summary
+
 - **Runners soportados:** {{ .runners | listOrDash }}  
 - **Permisos mínimos:** {{ .allPermissions | inlinePermsOrDash }}  
-- **Eventos:** `workflow_call` (reutilizable) [1](https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows)  
-- **Límites de reuso/anidamiento:** consulta “Reusing workflow configurations” (accesibilidad, nesting, variables y outputs). [2](https://docs.github.com/en/actions/reference/workflows-and-actions/reusing-workflow-configurations)
+- **Eventos:** `workflow_call` (reutilizable)  
+  https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows  
+- **Límites de reuso/anidamiento:**  
+  https://docs.github.com/en/actions/reference/workflows-and-actions/reusing-workflow-configurations  
 
-## Uso (caller)
+---
+
+## ▶️ Uso (caller)
+
 ```yaml
 jobs:
   use-{{ .slug }}:
@@ -75,3 +100,8 @@ jobs:
 {{ end }}    secrets:
 {{ range .secrets }}      {{ .id }}: ${{ "{{ secrets." }}{{ .suggested | default .id | upper }}{{ " }}" }}
 {{ end }}
+```
+
+---
+
+**NTT DATA Confidential**

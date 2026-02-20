@@ -1,0 +1,196 @@
+## Archivo generado automáticamente mediante agent skills
+name: angular-custom
+
+on:
+  workflow_call:
+    inputs:
+      branch:
+        description: 'Branch del código a desplegar'
+        required: true
+        type: string
+      app-version:
+        description: 'Versión de la aplicación (semver)'
+        required: true
+        type: string
+      environment:
+        description: 'Entorno de destino (dev, qa, staging, production)'
+        required: true
+        type: string
+      node-version:
+        description: 'Versión de Node.js'
+        required: false
+        type: string
+        default: '18'
+      angular-version:
+        description: 'Versión de Angular CLI'
+        required: false
+        type: string
+        default: '18'
+      run-unit-tests:
+        description: 'Ejecutar tests unitarios'
+        required: false
+        type: boolean
+        default: true
+      generate-coverage:
+        description: 'Generar reporte de coverage'
+        required: false
+        type: boolean
+        default: false
+      clear-cache:
+        description: 'Limpiar caché antes del build'
+        required: false
+        type: boolean
+        default: false
+      issue-number:
+        description: 'Número del issue que disparó el workflow'
+        required: false
+        type: number
+        default: '0'
+      triggered-by:
+        description: 'Usuario que disparó el deployment'
+        required: false
+        type: string
+        default: 'automation'
+    secrets:
+      NPM_TOKEN:
+        description: 'Token de NPM para paquetes privados'
+        required: false
+      DEPLOY_TOKEN:
+        description: 'Token para el despliegue'
+        required: true
+    outputs:
+      build-version:
+        description: 'Versión del build generado'
+        value: ${{ jobs.build.outputs.version }}
+      test-results:
+        description: 'Resultado de los tests'
+        value: ${{ jobs.test.outputs.results }}
+
+jobs:
+  setup:
+    name: Setup and Validation
+    runs-on: ubuntu-latest
+    outputs:
+      cache-key: ${{ steps.cache-keys.outputs.node }}
+    steps:
+      - name: Validate inputs
+        run: |
+          echo "🔍 Validando inputs..."
+          if [[ ! "${{ inputs.environment }}" =~ ^(dev|qa|staging|production)$ ]]; then
+            echo "❌ Error: Entorno inválido '${{ inputs.environment }}'"
+            exit 1
+          fi
+          if [[ ! "${{ inputs.app-version }}" =~ ^[0-9]+\.[0-9]+\.[0-9]+.*$ ]]; then
+            echo "❌ Error: Versión inválida '${{ inputs.app-version }}'"
+            exit 1
+          fi
+          echo "✅ Validación exitosa"
+          echo "📦 Versión: ${{ inputs.app-version }}"
+          echo "🌍 Entorno: ${{ inputs.environment }}"
+          echo "🌿 Branch: ${{ inputs.branch }}"
+          echo "👤 Disparado por: ${{ inputs.triggered-by }}"
+      - name: Generate cache keys
+        id: cache-keys
+        run: |
+          echo "node=node-${{ runner.os }}-${{ inputs.node-version }}-${{ hashFiles('**/package-lock.json') }}" >> $GITHUB_OUTPUT
+
+  checkout:
+    name: Checkout and Setup
+    runs-on: ubuntu-latest
+    needs: setup
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch }}
+          fetch-depth: 0
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: 'npm'
+      - name: Limpiar caché npm
+        if: inputs.clear-cache
+        run: |
+          echo "🧹 Limpiando caché de npm..."
+          npm cache clean --force
+      - name: Configurar NPM Token
+        if: ${{ secrets.NPM_TOKEN != '' }}
+        run: |
+          echo "🔐 Configurando NPM token..."
+          echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
+      - name: Instalar dependencias
+        run: |
+          echo "📦 Instalando dependencias..."
+          npm ci --prefer-offline --no-audit
+      - name: Verificar instalación de Angular CLI
+        run: |
+          echo "🅰️ Verificando Angular CLI..."
+          if ! command -v ng &> /dev/null; then
+            echo "Instalando Angular CLI v${{ inputs.angular-version }}..."
+            npm install -g @angular/cli@${{ inputs.angular-version }}
+          fi
+          ng version
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules
+            ~/.npm
+          key: ${{ needs.setup.outputs.cache-key }}
+          restore-keys: |
+            node-${{ runner.os }}-${{ inputs.node-version }}-
+
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    needs: checkout
+    if: inputs.run-unit-tests
+    outputs:
+      results: ${{ steps.test-results.outputs.summary }}
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch }}
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: 'npm'
+      - name: Restaurar dependencias
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: ${{ needs.setup.outputs.cache-key }}
+      - name: Ejecutar tests unitarios
+        run: |
+          echo "🧪 Ejecutando tests unitarios..."
+          npm run test:ci --if-present || ng test --watch=false --browsers=ChromeHeadless --code-coverage=${{ inputs.generate-coverage }}
+      - name: Generar reporte de coverage
+        if: inputs.generate-coverage
+        run: |
+          echo "📊 Generando reporte de coverage..."
+          if [ -d "coverage" ]; then
+            echo "Coverage report generado en ./coverage"
+          fi
+      - name: Subir coverage a Codecov
+        if: inputs.generate-coverage
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage/lcov.info
+          flags: unittests
+          name: angular-coverage
+      - name: Publicar resultados de tests
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ inputs.environment }}
+          path: |
+            coverage/
+            test-results/
+          retention-days: 30
+      - name: Resumen de tests
+        id: test-results
+        run: |
+          echo "summary=Tests ejecutados exitosamente" >> $GITHUB_OUTPUT

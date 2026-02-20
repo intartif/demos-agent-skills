@@ -1,4 +1,3 @@
-
 <div style="display: flex; justify-content: space-between; align-items: flex-start;">
   <hr style="width: 60%; margin-top: 32px; margin-bottom: 0; border: 1px solid #ccc;">
   <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/09/NTT-Data-Logo.svg/960px-NTT-Data-Logo.svg.png" alt="NTT Data Logo" width="110" align="right" style="margin-left: 16px; margin-bottom: 0;"/>
@@ -6,12 +5,12 @@
 
 <p align="right"><sub>Generado por NTT DATA</sub></p>
 
-# 🚀 {{ .action.name }} — Reusable Action
+# 🚀 validate-inputs — Reusable Action
 
 ---
 
 ## 📝 Descripción
-{{ .action.description | default "Run SonarQube/SonarCloud analysis (requiere SONAR_HOST_URL y SONAR_TOKEN). Composite action para análisis de calidad de código en pipelines CI/CD." }}
+Valida inputs requeridos y opcionales
 
 > Esta acción define su metadata en `action.yml` (inputs/outputs/runs).  
 > Para **composite actions**, el bloque `runs.using: composite` agrupa múltiples steps y requiere `shell` por step.
@@ -19,41 +18,32 @@
 ---
 
 ## 🧩 Inputs
-{{ if .action.inputs }}
 | Nombre | Requerido | Default | Descripción |
 |---|:---:|---|---|
-{{ range .action.inputs }}| `{{ .id }}` | {{ if .required }}✅{{ else }}—{{ end }} | {{ .default | codeOrDash }} | {{ .description | orSuggest }} |
-{{ end }}
-{{ else }}
-_No define inputs._
-{{ end }}
+| `app-name` | ✅ | — | Nombre de la aplicación |
+| `version` | — | — | Versión (semver preferible) |
+| `path` | — | — | Ruta que debe existir |
 
 ---
 
 ## 📤 Outputs
-{{ if .action.outputs }}
-| Nombre | Descripción |
-|---|---|
-{{ range .action.outputs }}| `{{ .id }}` | {{ .description | orSuggest }} |
-{{ end }}
-{{ else }}
 _No define outputs._
-{{ end }}
 
 ---
 
 ## Ejemplo de uso
 
 ```yaml
-- name: {{ .action.name }} step
-  uses: {{ .owner }}/{{ .repo }}{{ if .path }}/{{ .path }}{{ end }}@{{ .ref }}
+- name: validate-inputs step
+  uses: <owner>/<repo>/actions/validate-inputs@<ref>
   with:
-{{ range .action.inputs }}    {{ .id }}: {{ .example | default "<value>" }}
-{{ end }}  env:
+    app-name: <value>
+    version: <value>
+    path: <value>
+  env:
     SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
     SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
 ```
 
 ---
-
 **NTT DATA Confidential**
