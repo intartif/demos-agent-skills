@@ -1,5 +1,9 @@
 name: publish-artifactory
-description: "Publish artifacts to JFrog Artifactory using jfrog-cli."
+
+
+
+
+
 inputs:
   artifact-path:
     description: "Path to artifact(s) to publish (glob allowed)"
@@ -7,6 +11,7 @@ inputs:
   repo:
     description: "Artifactory repo target"
     required: true
+    defult: "generic-local"
 runs:
   using: "composite"
   steps:

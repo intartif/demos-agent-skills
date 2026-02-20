@@ -1,5 +1,4 @@
 name: build-angular
-description: "Build de proyectos Angular"
 inputs:
   node-version:
     required: false

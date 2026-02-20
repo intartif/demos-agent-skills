@@ -29,6 +29,7 @@ metadata:
 4. Comparar ambos workflows:
   - Jobs prohibidos en prod: lint, test, snyk, sonar, fortify, prettier, coverage, scan, semgrep, format, type-check, snyk-scan, unit-test o jobs propios de escaneo o pruebas del flujo de CI.
   - El resto de jobs, steps y configuración deben ser idénticos.
+  - Los jobs que deben estar obligatorios en producción son los relacionados con el despliegue, release, build, deploy o similares.
   - El workflow de desarrollo (`-dev`) NUNCA debe modificarse. Cualquier ajuste o fix se debe aplicar únicamente al workflow de producción (`-prod`).
 5. Mostrar obligatoriamente un reporte y para ello debo usar el formato de salida definido en la sección "Formato de salida (OBLIGATORIO)". Debo reportar diferencias no permitidas y sugerir fixes. 
 6. Solicitar confirmación antes de aplicar fixes automáticos (si aplica), dejando claro que solo el workflow de producción será modificado.
